@@ -1,0 +1,29 @@
+[workspace]
+resolver = "3"
+members = ["crates/trustforge-cli", "crates/trustforge-core"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+# Minimum supported Rust version. sha2 0.11 (Milestone 1) requires 1.88.
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+# Nothing is published before the first release candidate (Milestone 6).
+publish = false
+
+[workspace.dependencies]
+assert_cmd = "2.2"
+clap = { version = "4.6", features = ["derive"] }
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+# Unfinished code must not land: there are no placeholders for verification logic.
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+# Panicking on untrusted input is a bug. Tests may still unwrap (see clippy.toml).
+expect_used = "warn"
+unwrap_used = "warn"
