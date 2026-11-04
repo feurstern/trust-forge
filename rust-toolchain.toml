@@ -1,0 +1,8 @@
+# Toolchain for development, CI and release builds. It is pinned exactly so that
+# lints, formatting and release binaries do not drift between machines.
+# The minimum supported Rust version is `rust-version` in Cargo.toml; CI checks
+# it separately.
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]
+profile = "minimal"
