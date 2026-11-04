@@ -1,0 +1,11 @@
+[package]
+name = "trustforge-core"
+description = "Core library of TrustForge: artifact inspection, hashing, manifests and verification. Pre-alpha: no API yet."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
