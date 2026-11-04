@@ -1,0 +1,4 @@
+# Clippy does not merge configuration files: a crate-level clippy.toml replaces
+# this one for that crate, so it must repeat these settings.
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
