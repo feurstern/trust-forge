@@ -1,0 +1,6 @@
+# Normalize text files to LF in the repository and in working trees.
+* text=auto eol=lf
+
+# Test fixtures are compared byte-for-byte against recorded digests: git must
+# never rewrite them on checkout, on any platform.
+/fixtures/** -text
