@@ -8,12 +8,12 @@ TrustForge integrates with established standards and does not invent its own. Th
 | **Partial** | Implemented with documented gaps |
 | **Planned** | Not implemented. Nothing on this page should be read as available unless it says Supported. |
 
-> As of Milestone 0, **every row is Planned.**
+> As of Milestone 1, the digest algorithms and NAR tree digests are **Supported**. Every other row is Planned.
 
 | Standard (version referenced) | Role in TrustForge | Milestone | Guarantee provided | Not provided | Status |
 |---|---|---|---|---|---|
-| SHA-256, SHA-512 (FIPS 180-4); BLAKE3 | Artifact digests | M1 | Integrity relative to a reference | Anything about where the reference came from | Planned |
-| NAR serialization (Nix Archive) | Directory tree digests | M1 | Exact identity of a file tree (contents, executable bits, symlinks, empty directories) | Timestamps, ownership, permissions beyond the executable bit | Planned |
+| SHA-256, SHA-512 (FIPS 180-4); BLAKE3 | Artifact digests, computed by `trustforge inspect`; tested against the FIPS 180-4 examples and the official BLAKE3 test vectors | M1 | Identifies exact bytes. Integrity relative to a reference once references are compared (M3). | Anything about where the reference came from | Supported |
+| NAR serialization (Nix Archive) | Directory tree digests; tested against reference serializations produced by Nix 2.35.4 | M1 | Exact identity of a file tree (contents, owner-execute bits, symlinks, empty directories) | Timestamps, ownership, permission bits other than owner-execute (including setuid and capabilities); unsupported on Windows | Supported |
 | RFC 7493 (I-JSON), RFC 8785 (JCS) | Strict parsing, deterministic and canonical output | M2 | Unambiguous parsing | Authenticity | Planned |
 | in-toto Attestation Framework v1 (Statement, ResourceDescriptor, DigestSet) | Manifest envelope (M2); attestation parsing (M5) | M2, M5 | A well-defined structure for claims | Authenticity until signed | Planned |
 | SLSA v1.2: Build Track, Provenance v1, Verification Summary (VSA) v1 | Recipe structure in manifests (M2); provenance verification and rebuild provenance output (M5); VSA export (after M6) | M2–M6 | Provenance *as attested by a builder the user's policy trusts* | That the builder was not compromised | Planned |
