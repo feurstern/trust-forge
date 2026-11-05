@@ -4,11 +4,10 @@
 
 TrustForge is an open-source Rust library and command-line tool for checking where a compiled artifact came from. It will inspect an artifact, check its digests, evaluate signatures and build provenance when they are supplied, and rebuild it from its claimed source to see whether the result is byte-for-byte identical. It then reports exactly which of these checks were done, what they established, and what they did not.
 
-> **Status: pre-alpha (Milestone 0: architecture).**
-> TrustForge does not verify anything yet. The repository contains the
-> architecture, threat model and draft specifications, plus a workspace whose
-> CLI only supports `--help` and `--version`. Do not use it for security
-> decisions. See the [roadmap](docs/roadmap.md).
+> **Status: pre-alpha (Milestone 1: inspection and hashing).**
+> TrustForge can inspect artifacts and compute their digests, but it does not
+> verify anything yet: it compares those digests with nothing. Do not use it
+> for security decisions. See the [roadmap](docs/roadmap.md).
 
 ## The problem
 
@@ -52,11 +51,21 @@ claimed source ──► rebuild in an isolated container ──► byte compari
 
 ## What TrustForge verifies today
 
-**Nothing.** Milestone 0 delivers the architecture, the threat model and draft specifications. The [roadmap](docs/roadmap.md) lists when each capability is planned:
+**Nothing.** What exists today is inspection:
+
+```sh
+trustforge inspect target/release/myapp      # kind, size, format, SHA-256/SHA-512/BLAKE3
+trustforge inspect dist/                     # tree digests over the directory's NAR serialization
+trustforge inspect --format json - < app.tar.gz
+```
+
+`inspect` reports which bytes an artifact contains: its size, its format (from header bytes), and its digests. For a directory, the tree digest covers every file's contents and executable bit, every symlink's target, and empty directories, and equals the NAR hash Nix computes for the same directory (`nix-hash --type sha256`). Symbolic links are recorded and never followed, and special files are never opened. Comparing digests against references, which is where verification starts, arrives in Milestone 3. See [getting started](docs/getting-started.md).
+
+The [roadmap](docs/roadmap.md) lists when each capability is planned:
 
 | Capability | Planned for |
 |---|---|
-| Artifact inspection and SHA-256 / SHA-512 / BLAKE3 hashing | Milestone 1 |
+| Artifact inspection and SHA-256 / SHA-512 / BLAKE3 hashing | Milestone 1 (available) |
 | TrustForge manifest (draft v0) | Milestone 2 |
 | Verification engine, JSON and terminal reports, stable exit codes | Milestone 3 |
 | Reproducible rebuilds of Rust/Cargo projects (Linux, container-isolated) | Milestone 4 |
@@ -74,7 +83,9 @@ See [known limitations](docs/limitations.md) for the full list.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md): workspace layout, planned APIs, key decisions
+- [Getting started](docs/getting-started.md): installation and quick start
+- [CLI reference](docs/cli-reference.md): options, output formats, exit codes
+- [Architecture](docs/architecture.md): workspace layout, APIs, key decisions
 - [Threat model and security model](docs/threat-model.md)
 - [Verification semantics](docs/verification-semantics.md): statuses, policies, exit codes
 - [Manifest specification (draft v0)](docs/manifest-spec.md)
@@ -82,15 +93,15 @@ See [known limitations](docs/limitations.md) for the full list.
 - [Known limitations](docs/limitations.md)
 - [Roadmap](docs/roadmap.md)
 
-The installation guide, quick start, CLI reference and reproducible build guide will be written as the corresponding features land.
+The reproducible build guide will be written when rebuilds land (Milestone 4).
 
 ## Building from source
 
-TrustForge builds with the toolchain pinned in `rust-toolchain.toml`, which rustup installs automatically. The minimum supported Rust version is 1.88.
+TrustForge builds with the toolchain pinned in `rust-toolchain.toml`, which rustup installs automatically. The minimum supported Rust version is 1.88. A C compiler is needed too, for BLAKE3's SIMD code.
 
 ```sh
-cargo build --workspace
-cargo run -p trustforge-cli -- --version
+cargo install --path crates/trustforge-cli --locked
+trustforge inspect --help
 ```
 
 ## Contributing
