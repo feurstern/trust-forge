@@ -1,6 +1,6 @@
 # Threat Model and Security Model
 
-> **Status:** Milestone 0 design. Mitigations are planned for the milestone named next to each component. Behavior that a test has not demonstrated must not be described as a guarantee. Update this document with every security-relevant change.
+> **Status:** Milestone 1. The artifact inspection mitigations below are implemented and covered by tests. All other mitigations are planned for the milestone named next to each component. Behavior that a test has not demonstrated must not be described as a guarantee. Update this document with every security-relevant change.
 
 ## Security model
 
@@ -43,18 +43,23 @@ TrustForge's output is used to make trust decisions, so its most important prope
 
 ## Threats and mitigations
 
-### Artifact inspection (M1)
+### Artifact inspection (M1, implemented)
 
 | Threat | Mitigation | Residual risk |
 |---|---|---|
-| Symlink escape | Symlinks below the root are never followed, only recorded. Files are opened relative to a directory handle with no-follow flags. | — |
-| Special files (FIFO, device, socket) causing hangs or device reads | Non-blocking opens and an `fstat` type check. Special files are an error. | — |
-| Concurrent modification (TOCTOU) | Size, mtime and inode are re-checked after hashing; any change is an error. | Detected, not prevented |
+| Symlink escape | Below the root, nothing is resolved by path. Each entry is examined with `fstatat(AT_SYMLINK_NOFOLLOW)` and opened by its single name relative to its parent's descriptor with `O_NOFOLLOW`. Symlinks are recorded with their target text and never followed. A root symlink is followed once and reported. | — |
+| Special files (FIFO, device, socket) causing hangs or device reads | The type comes from `stat`/`fstatat` before anything is opened; special files are errors and are never opened. Opens use `O_NONBLOCK`, so an object swapped in meanwhile cannot block, and `fstat` rejects it before any read. | — |
+| Concurrent modification (TOCTOU) | Opened objects must have the device and inode that `fstatat` reported. A file is read for exactly its reported size, with an end-of-file probe. Afterwards its device, inode, permissions, link count, size, modification time and status-change time must be unchanged, and its name must still refer to it. Directories are re-checked after listing and after their subtree, including that their name still refers to them. After the walk, a final pass re-examines every entry, so the result describes the tree at one moment rather than a mix of states (for example, a file moved from a finished directory into one not yet listed). The root path must still lead to the inspected object at the end. | **Best-effort detection, not prevention.** Changes within timestamp granularity that keep the size, writes through already-dirty shared memory maps, A-B-A restores, and network or FUSE file systems reporting false metadata can go unnoticed. On Windows, a single file's length and modification time are the only checks. |
+| A shrinking file re-framing the archive | The NAR writer is a state machine: a file accepts exactly its declared length, and entry names must strictly increase. Without this, bytes after a truncated file could be read back as its content, and the stream could equal the valid serialization of a different tree. | — |
+| Size reports that lie (procfs, sysfs, FUSE) | The exact-length read and end-of-file probe reject any file whose content does not match its reported size. | — |
 | Crash on truncation | Files are never memory-mapped. | — |
-| Name tricks: lossy conversion, control or bidi characters, normalization | Non-UTF-8 and control-character names are rejected; no lossy conversion; byte-exact comparison | — |
-| File/tree digest confusion | Separate digest keys for trees, plus artifact-kind checks | — |
-| Running hostile binaries during inspection | Header parsing is in-process and bounded. `ldd`, `file` and binutils are never invoked. | — |
-| Resource exhaustion | Streaming I/O and documented limits on entries, depth, sizes and symlink-target length; iterative traversal | — |
+| Name tricks: lossy conversion, control or bidi characters, normalization | A fixed list of forbidden code points; invalid UTF-8 is rejected, never converted lossily; byte-exact comparison; duplicates rejected. Error messages escape the offending bytes. | Visually confusable names (homoglyphs) are not detected. |
+| Terminal injection through artifact names or targets | One sanitizer escapes control characters (including ESC, so no ANSI or OSC sequence passes), bidi controls and line separators in all text output. JSON output spells the same characters as `\uXXXX` escapes, so it is safe to print and its values are unchanged. | Programs that decode the JSON and display its strings must escape them themselves. |
+| File/tree digest confusion | Separate digest-set keys (`narSha256`, …) and a separate type (`ArtifactDigests::Tree`) for tree digests | — |
+| Permission bits that no digest covers | Documented: only the owner-execute bit is covered. | Copying a tree with `cp -a`, `rsync -a` or `tar -p` can carry setuid bits or file capabilities that no digest covered. |
+| Crossing into other file systems; bind-mount cycles | A directory on a different device than its parent, or one that is its own ancestor, is an error. | Btrfs subvolumes are rejected as mount points. |
+| Running hostile binaries during inspection | Header parsing is in-process, hand-written and bounds-checked, and reads at most the first 4 KiB captured while hashing. `ldd`, `file` and binutils are never invoked, and the core library cannot spawn processes (enforced by clippy). | — |
+| Resource exhaustion | Streaming through a fixed buffer. Limits on content bytes (checked against the reported size before reading, so a huge sparse file fails instantly), entries, depth, total path length and symlink-target length. Iterative traversal with at most one descriptor per level. Running out of descriptors is a reported error. | A listing at the default entry limit can use about 0.7 GB of memory (about 0.7 KB per entry). |
 
 ### Documents and parsing (M2–M3)
 

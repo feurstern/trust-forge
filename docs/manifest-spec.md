@@ -183,23 +183,32 @@ A digest set is a JSON object mapping an algorithm name to a lowercase hexadecim
 | `narSha512` | SHA-512 of the tree's NAR serialization (hex) |
 | `narBlake3` | BLAKE3 of the tree's NAR serialization (hex) |
 
-NAR is the Nix Archive format, a deterministic, injective serialization of a file tree, described in the Nix manual. It records:
-- regular files, with their contents and executable bit;
-- directories, including empty ones, with entries sorted by the byte value of their names;
+NAR is the Nix Archive format, a deterministic, injective serialization of a file tree, as produced by `nix-store --dump`. It records:
+- regular files, with their contents and whether they are executable, which means the **owner-execute bit (`S_IXUSR`) only**, exactly as in Nix;
+- directories, including empty ones, with entries sorted by the unsigned byte value of their names;
 - symlinks, with their target text.
 
-It does not record timestamps, ownership or other permissions. Tree digests use separate keys and are compared only against directory artifacts, so a file whose bytes happen to be a NAR serialization can never satisfy a tree digest.
+No tree digest covers:
+- setuid, setgid or sticky bits;
+- group or other permission bits;
+- ACLs, extended attributes (including file capabilities) or resource forks;
+- ownership, timestamps or hard-link identity.
+
+A tree copied with tools that preserve these (`cp -a`, `rsync -a`, `tar -p`) can carry privileges that no digest covered.
+
+Tree digests use separate keys and are compared only against directory artifacts, so a file whose bytes happen to be a NAR serialization can never satisfy a tree digest. TrustForge's NAR implementation is tested against reference serializations produced by Nix itself.
 
 ## Directory artifacts
 
-- `subject` lists every regular file, with `name` set to its relative path. This keeps the manifest useful to generic in-toto tools.
-- `artifact.tree` lists every entry in NAR traversal order (depth-first, siblings sorted by byte value). Each entry has:
+- `subject` lists every regular file, with `name` set to its relative path, in the same order as `artifact.tree`. This keeps the manifest useful to generic in-toto tools.
+- `artifact.tree` lists every entry in NAR traversal order: the root itself is not listed, then depth-first pre-order with siblings in ascending unsigned byte order of their names. This is not full-path order: `a`, `a/b`, `a-b`. Paths are `/`-separated, with no leading `./`. Each entry has:
   - `path`
   - `type`: `"file"`, `"directory"` or `"symlink"`
   - for files, `executable`, `size` and `digest`
   - for symlinks, `target`
+- `artifact.size` counts a file with several hard links once per path.
 - Verification requires an **exact** tree match. Extra, missing or retyped entries, a changed executable bit or a changed symlink target are all mismatches.
-- File names must be valid UTF-8 without control characters, bidi controls or backslash. Names are compared byte for byte with no Unicode normalization.
+- A name must be valid UTF-8, must not be empty, `.` or `..`, and must not contain U+0000–U+001F, U+007F–U+009F, `/`, `\`, U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069, U+2028 or U+2029. This list is fixed; it does not follow new Unicode versions. Symlink targets follow the same rules, except that `/`, `.` and `..` are allowed. Names are compared byte for byte with no Unicode normalization.
 
 ## Source identity
 
@@ -267,6 +276,7 @@ Signatures (DSSE) cover the **exact bytes** of a document, so verification never
 
 - The namespace URI.
 - Whether `artifact.size` becomes mandatory.
-- Directory tree digests on Windows (currently unsupported, because Windows has no executable bit).
+- Directory tree digests on Windows (unsupported in v0, because Windows has no executable bit; decided in Milestone 1).
+- The 4 MiB manifest size limit against large directory artifacts. Listing every file in both `subject` and `artifact.tree` costs roughly 150 bytes or more per file, so a 4 MiB manifest holds only about 10,000–20,000 files. To be resolved in Milestone 2.
 - Build types beyond `cargo/v0`.
 - The signing profile for manifests (Milestone 5).

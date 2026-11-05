@@ -1,0 +1,10 @@
+# Clippy does not merge configuration files: this file replaces the workspace
+# clippy.toml for this crate, so it repeats those settings.
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+
+# trustforge-core never spawns processes (docs/architecture.md), so embedders
+# do not inherit the rebuild engine's attack surface.
+disallowed-methods = [
+    { path = "std::process::Command::new", reason = "trustforge-core never spawns processes" },
+]

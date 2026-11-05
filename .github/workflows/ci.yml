@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
   schedule:
     # Weekly, so new RustSec advisories surface even when the code is unchanged.
@@ -34,8 +34,14 @@ jobs:
       - run: cargo fmt --all --check
 
   clippy:
-    name: clippy
-    runs-on: ubuntu-latest
+    # Platform-specific code (Unix traversal, the Windows fallback) is only
+    # linted on its own platform.
+    name: clippy (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
