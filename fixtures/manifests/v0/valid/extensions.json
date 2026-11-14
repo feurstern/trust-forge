@@ -1,0 +1,25 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "x-note": "fields this version does not define are ignored, with a warning",
+  "predicateType": "https://feurstern.github.io/trust-forge/manifest/v0",
+  "subject": [
+    {
+      "name": "tool",
+      "uri": "https://example.com/downloads/tool",
+      "digest": {
+        "sha256": "d1676dcb0cd0903841cf4953ba161eb34601a821d45ae551049318597b7aa5b9",
+        "md5": "0123456789abcdef0123456789abcdef",
+        "sha3-256": "not checked by this version"
+      }
+    }
+  ],
+  "predicate": {
+    "artifact": { "kind": "file", "size": 26, "x-mode": "0755" },
+    "buildDefinition": {
+      "buildType": "https://example.com/build/make/v1",
+      "externalParameters": { "target": "all" },
+      "resolvedDependencies": []
+    },
+    "x-vendor": { "\u20ac": 1, "\u00f6": 2, "\ud83d\ude00": 3, "\ufb33": 4, "10": "ten", "9": "nine", "1": "one" }
+  }
+}
