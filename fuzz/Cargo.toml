@@ -1,0 +1,39 @@
+# Coverage-guided fuzz targets for TrustForge's parsers (cargo-fuzz).
+#
+# Fuzzing needs a nightly toolchain, so this crate is its own workspace,
+# outside the main one. Run from the repository root:
+#
+#   cargo +nightly fuzz run manifest -- -dict=fuzz/manifest.dict
+#   cargo +nightly fuzz run format
+#
+# CI runs every target weekly (.github/workflows/fuzz.yml).
+
+[package]
+name = "trustforge-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+trustforge-core = { path = "../crates/trustforge-core" }
+
+[workspace]
+
+[[bin]]
+name = "manifest"
+path = "fuzz_targets/manifest.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "format"
+path = "fuzz_targets/format.rs"
+test = false
+doc = false
+bench = false
