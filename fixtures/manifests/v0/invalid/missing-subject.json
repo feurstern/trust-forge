@@ -1,0 +1,9 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://feurstern.github.io/trust-forge/manifest/v0",
+  "predicate": {
+    "artifact": {
+      "kind": "file"
+    }
+  }
+}
