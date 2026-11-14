@@ -17,7 +17,7 @@ Development proceeds in milestones. Each milestone is planned and approved befor
 
 Architecture, threat model, draft manifest specification and verification semantics, standards survey, dependency selection, workspace, lints, CI and Dependabot configuration. No verification functionality.
 
-### M1: Artifact inspection and hashing (current)
+### M1: Artifact inspection and hashing (done)
 
 - An evaluation of directory traversal approaches. Decided: `rustix` descriptor-relative system calls on Unix, with directory inspection unsupported on Windows ([architecture](architecture.md#key-decisions), decision 10).
 - The `digest` module, with known-answer and property tests.
@@ -28,14 +28,14 @@ Architecture, threat model, draft manifest specification and verification semant
 - Security regression tests and benchmarks.
 - [Getting started](getting-started.md) (installation and quick start) and the [CLI reference](cli-reference.md) for `inspect`.
 
-### M2: Manifest
+### M2: Manifest (current)
 
-- A strict JSON parsing layer.
+- A strict JSON parsing layer (`trustforge_core::json`).
 - The typed in-toto Statement and TrustForge predicate (v0), with validation rules.
-- Deterministic and RFC 8785 serialization.
+- Deterministic and RFC 8785 serialization, checked against ECMAScript's own JSON serialization.
 - `trustforge manifest create` and `manifest validate`.
-- Golden fixtures, a JSON Schema document, and coverage-guided fuzz targets for the manifest parser and the M1 format detector.
-- A decision on the manifest size limit for large directory artifacts.
+- Golden fixtures (`fixtures/manifests/v0`), a non-normative [JSON Schema](schemas/manifest-v0.schema.json) checked against them with ajv, and coverage-guided fuzz targets for the manifest parser and the M1 format detector, run weekly in CI.
+- The manifest size limit for large directory artifacts: decided to stay at 4 MiB by default and be configurable (see [manifest-spec.md](manifest-spec.md#parsing-and-validation)); a more compact form for very large trees is an open item before v1.
 
 ### M3: Verification engine
 
@@ -81,13 +81,13 @@ Architecture, threat model, draft manifest specification and verification semant
 
 | # | Question | Needed by |
 |---|---|---|
-| a | What URI namespace should TrustForge's types use (`<ns>`)? A domain the project controls, or a GitHub organization? | M2 |
 | b | Keep the name "TrustForge"? An unrelated project, `kodydennon/trustforge`, uses the same name. | M2, at the latest before the first publish |
 | c | What security contact should SECURITY.md list? | M6 |
 | e | Should there be a publisher-side `trustforge build` that produces release artifacts with the same recipe verifiers rerun? | M4 |
 | f | Should contributions require a DCO sign-off, a CLA, or neither? | M6 |
 
 Settled:
+- (a) TrustForge's type URIs live under `https://feurstern.github.io/trust-forge` (decided for Milestone 2).
 - (d) Directory tree digests are unsupported on Windows in v0 (decided for Milestone 1).
 
 Questions that spikes will settle:
