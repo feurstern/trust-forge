@@ -1,0 +1,64 @@
+{
+  "predicate": {
+    "buildDefinition": {
+      "resolvedDependencies": [
+        {
+          "digest": {
+            "gitCommit": "8c3e1f6b2a9d4e5f60718293a4b5c6d7e8f90a1b"
+          },
+          "uri": "git+https://github.com/example/project.git@refs/tags/v1.2.3"
+        },
+        {
+          "uri": "pkg:docker/library/rust@1.99.1-slim-bookworm?repository_url=docker.io",
+          "name": "build image",
+          "digest": {
+            "sha256": "5d1f3c8e9a2b4c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d"
+          }
+        }
+      ],
+      "internalParameters": {
+        "env": {
+          "RUSTFLAGS": "--remap-path-prefix=/build/src=.",
+          "SOURCE_DATE_EPOCH": "1730678400"
+        },
+        "toolchain": "stable",
+        "workdir": "/build/src",
+        "cargoHome": "/build/cargo-home"
+      },
+      "externalParameters": {
+        "target": "x86_64-unknown-linux-gnu",
+        "source": {
+          "ref": "refs/tags/v1.2.3",
+          "repository": "https://github.com/example/project.git"
+        },
+        "workspacePath": "app",
+        "package": "application",
+        "bin": "application",
+        "profile": "release",
+        "features": [
+          "cli",
+          "tls"
+        ],
+        "defaultFeatures": false,
+        "outputPath": "target/x86_64-unknown-linux-gnu/release/application"
+      },
+      "buildType": "https://feurstern.github.io/trust-forge/build/cargo/v0"
+    },
+    "artifact": {
+      "size": 26,
+      "kind": "file"
+    }
+  },
+  "subject": [
+    {
+      "digest": {
+        "sha512": "c897ef6cb44a887e024e74a2a6510a144ab6a9b85d4d8b6a6e8622b4d3f8ebab0c42599260ae00f794c908439835645e0a8baa9e65d5fae9f44018d173de4aa3",
+        "sha256": "d1676dcb0cd0903841cf4953ba161eb34601a821d45ae551049318597b7aa5b9",
+        "blake3": "506e57e5bb0738ef622e5a765ec482a7da90cc3fc70069595a5c1be6fee55f02"
+      },
+      "name": "application"
+    }
+  ],
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://feurstern.github.io/trust-forge/manifest/v0"
+}

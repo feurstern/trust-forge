@@ -1,0 +1,19 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicate": {
+    "artifact": {
+      "kind": "file",
+      "size": 26
+    }
+  },
+  "predicateType": "https://feurstern.github.io/trust-forge/manifest/v0",
+  "subject": [
+    {
+      "digest": {
+        "blake3": "506e57e5bb0738ef622e5a765ec482a7da90cc3fc70069595a5c1be6fee55f02",
+        "sha256": "d1676dcb0cd0903841cf4953ba161eb34601a821d45ae551049318597b7aa5b9"
+      },
+      "name": "prüfung-数据-😀.bin"
+    }
+  ]
+}

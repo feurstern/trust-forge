@@ -1,0 +1,56 @@
+name: Fuzz
+
+# Coverage-guided fuzzing of the parsers (fuzz/). Weekly, and on demand: a
+# run takes longer than the checks a pull request needs.
+on:
+  schedule:
+    - cron: "41 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Fuzzing needs nightly; this one is pinned so runs are comparable.
+  NIGHTLY: nightly-2026-11-13
+
+jobs:
+  fuzz:
+    name: fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: manifest
+            options: -dict=fuzz/manifest.dict
+          - target: format
+            options: ""
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned nightly toolchain and cargo-fuzz
+        run: |
+          rustup toolchain install "$NIGHTLY" --profile minimal --no-self-update
+          cargo +"$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
+      - name: Seed the corpus with the fixtures
+        run: |
+          mkdir -p fuzz/corpus/manifest fuzz/corpus/format
+          for dir in valid created invalid canonical; do
+            for file in fixtures/manifests/v0/$dir/*.json; do
+              cp "$file" "fuzz/corpus/manifest/$dir-$(basename "$file")"
+            done
+          done
+          cp fixtures/nar/*.nar fuzz/corpus/format/
+      - name: Fuzz for ten minutes
+        run: cargo +"$NIGHTLY" fuzz run "${{ matrix.target }}" -- -max_total_time=600 -rss_limit_mb=2048 ${{ matrix.options }}
+      - name: Print the failing input
+        if: failure()
+        run: |
+          for file in fuzz/artifacts/"${{ matrix.target }}"/*; do
+            echo "$file"
+            base64 "$file"
+          done

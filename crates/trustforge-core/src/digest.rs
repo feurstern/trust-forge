@@ -63,6 +63,11 @@ impl DigestAlgorithm {
         }
     }
 
+    /// The algorithm whose [tree name](Self::tree_name) is `name`.
+    pub fn from_tree_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|a| a.tree_name() == name)
+    }
+
     /// Length of the digest in bytes.
     pub const fn output_len(self) -> usize {
         match self {
@@ -113,6 +118,21 @@ pub enum DigestError {
     /// An algorithm set must contain at least one algorithm.
     #[error("no digest algorithm selected")]
     EmptyAlgorithmSet,
+    /// A digest value is not lowercase hexadecimal of the algorithm's length.
+    #[error("a {algorithm} digest must be exactly {} lowercase hexadecimal characters", .algorithm.output_len() * 2)]
+    InvalidHex {
+        /// The algorithm the value was given for.
+        algorithm: DigestAlgorithm,
+    },
+    /// A digest set must contain at least one digest.
+    #[error("a digest set must contain at least one digest")]
+    EmptyDigestSet,
+    /// A digest set contains two digests for one algorithm.
+    #[error("a digest set contains more than one {algorithm} digest")]
+    DuplicateAlgorithm {
+        /// The repeated algorithm.
+        algorithm: DigestAlgorithm,
+    },
 }
 
 /// A non-empty set of digest algorithms.
@@ -161,6 +181,42 @@ pub struct Digest {
 }
 
 impl Digest {
+    /// Parses a digest value as written in digest sets: exactly
+    /// `2 × output length` lowercase hexadecimal characters, nothing else.
+    pub fn from_hex(algorithm: DigestAlgorithm, hex: &str) -> Result<Self, DigestError> {
+        let invalid = || DigestError::InvalidHex { algorithm };
+        if hex.len() != algorithm.output_len() * 2 {
+            return Err(invalid());
+        }
+        let nibble = |c: u8| match c {
+            b'0'..=b'9' => Some(c - b'0'),
+            b'a'..=b'f' => Some(c - b'a' + 10),
+            _ => None,
+        };
+        let bytes = hex
+            .as_bytes()
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|&[high, low]| Some(nibble(high)? << 4 | nibble(low)?))
+            .collect::<Option<Box<[u8]>>>()
+            .ok_or_else(invalid)?;
+        Ok(Self { algorithm, bytes })
+    }
+
+    /// The digest of `data`, computed in one call.
+    pub fn of(algorithm: DigestAlgorithm, data: &[u8]) -> Self {
+        fn boxed(bytes: &[u8]) -> Box<[u8]> {
+            bytes.into()
+        }
+        let bytes = match algorithm {
+            DigestAlgorithm::Blake3 => boxed(blake3::hash(data).as_bytes()),
+            DigestAlgorithm::Sha256 => boxed(sha2::Sha256::digest(data).as_ref()),
+            DigestAlgorithm::Sha512 => boxed(sha2::Sha512::digest(data).as_ref()),
+        };
+        Self { algorithm, bytes }
+    }
+
     /// The algorithm that produced this digest.
     pub fn algorithm(&self) -> DigestAlgorithm {
         self.algorithm
@@ -200,6 +256,27 @@ impl fmt::Debug for Digest {
 pub struct DigestSet(BTreeMap<DigestAlgorithm, Digest>);
 
 impl DigestSet {
+    /// Builds a set from digests of distinct algorithms. An empty input, or
+    /// two digests for the same algorithm, is an error.
+    pub fn new(digests: impl IntoIterator<Item = Digest>) -> Result<Self, DigestError> {
+        let mut set = BTreeMap::new();
+        for digest in digests {
+            let algorithm = digest.algorithm;
+            if set.insert(algorithm, digest).is_some() {
+                return Err(DigestError::DuplicateAlgorithm { algorithm });
+            }
+        }
+        if set.is_empty() {
+            return Err(DigestError::EmptyDigestSet);
+        }
+        Ok(Self(set))
+    }
+
+    /// The algorithms in the set, in name order.
+    pub fn algorithms(&self) -> impl Iterator<Item = DigestAlgorithm> + '_ {
+        self.0.keys().copied()
+    }
+
     /// The digest for `algorithm`, if it was computed.
     pub fn get(&self, algorithm: DigestAlgorithm) -> Option<&Digest> {
         self.0.get(&algorithm)
@@ -468,6 +545,65 @@ mod tests {
             .map(|k| json.find(k).unwrap())
             .collect();
         assert!(keys.is_sorted(), "{json}");
+    }
+
+    #[test]
+    fn digests_parse_only_exact_lowercase_hex() {
+        let hex = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        let digest = Digest::from_hex(DigestAlgorithm::Sha256, hex).unwrap();
+        assert_eq!(digest.to_hex(), hex);
+        let invalid = |algorithm, text: &str| {
+            assert_eq!(
+                Digest::from_hex(algorithm, text),
+                Err(DigestError::InvalidHex { algorithm }),
+                "{text:?}"
+            );
+        };
+        invalid(DigestAlgorithm::Sha256, &hex.to_uppercase());
+        invalid(DigestAlgorithm::Sha256, &hex[1..]);
+        invalid(DigestAlgorithm::Sha256, &format!("{hex}0"));
+        invalid(DigestAlgorithm::Sha512, hex);
+        invalid(DigestAlgorithm::Sha256, &format!("{}g", &hex[1..]));
+        invalid(DigestAlgorithm::Sha256, &format!(" {}", &hex[1..]));
+        invalid(DigestAlgorithm::Blake3, "");
+        // A multi-byte character must not be mistaken for two hex digits.
+        invalid(DigestAlgorithm::Sha256, &format!("{}\u{e9}", &hex[2..]));
+    }
+
+    #[test]
+    fn one_shot_digests_match_streaming_ones() {
+        let mut hasher = MultiHasher::new(&AlgorithmSet::all());
+        hasher.update(b"abc");
+        let streamed = hasher.finalize();
+        for algorithm in DigestAlgorithm::ALL {
+            assert_eq!(
+                Some(&Digest::of(algorithm, b"abc")),
+                streamed.get(algorithm)
+            );
+        }
+    }
+
+    #[test]
+    fn digest_sets_need_distinct_algorithms() {
+        let a = Digest::from_hex(DigestAlgorithm::Blake3, &"a".repeat(64)).unwrap();
+        let b = Digest::from_hex(DigestAlgorithm::Blake3, &"b".repeat(64)).unwrap();
+        assert_eq!(DigestSet::new([]), Err(DigestError::EmptyDigestSet));
+        assert_eq!(
+            DigestSet::new([a.clone(), b]),
+            Err(DigestError::DuplicateAlgorithm {
+                algorithm: DigestAlgorithm::Blake3
+            })
+        );
+        let set = DigestSet::new([a]).unwrap();
+        assert_eq!(
+            set.algorithms().collect::<Vec<_>>(),
+            [DigestAlgorithm::Blake3]
+        );
+        assert_eq!(
+            DigestAlgorithm::from_tree_name("narBlake3"),
+            Some(DigestAlgorithm::Blake3)
+        );
+        assert_eq!(DigestAlgorithm::from_tree_name("blake3"), None);
     }
 
     #[test]

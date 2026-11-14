@@ -2,7 +2,12 @@
 
 ## Current state
 
-- **TrustForge does not verify anything yet.** Milestone 1 provides `trustforge inspect`, which describes an artifact and computes its digests. It compares them with nothing, so it establishes which bytes were read, not that they are genuine. See the [roadmap](roadmap.md).
+- **TrustForge does not verify anything yet.** `trustforge inspect` describes an artifact and computes its digests, and `trustforge manifest` writes and checks manifests. Nothing compares an artifact with a manifest or a reference yet (Milestone 3), so TrustForge establishes which bytes were read, not that they are genuine. See the [roadmap](roadmap.md).
+- **A manifest is a claim.** Validation checks the document only: it does not read the artifact, and an unsigned manifest does not show who wrote it. Signed manifests are verified from Milestone 5.
+- **Manifest size.** Manifests are limited to 4 MiB by default, which a directory manifest reaches at about 10,000–20,000 files. The limit can be raised with `--max-manifest-size`, and every reader then needs the same limit.
+- **Manifest coverage in v0:** only the Rust/Cargo build type is interpreted; other build types are kept but not checked. Directories without regular files cannot be described. Feature names in `dep:` and `package/feature` form are not accepted. A build image's package URL is checked only for its `pkg:docker/` prefix and SHA-256 digest.
+- **Parsing memory.** Validating a manifest at the 4 MiB limit (about 15,000 files) allocates about 55 MB at its peak.
+- **The JSON Schema is not normative.** It cannot express every rule, so a document that matches it can still be rejected by TrustForge; `docs/manifest-spec.md` is the reference.
 - **Format detection reads header bytes only.** It reports what a file's first bytes claim, without validating the file. A file can be valid in several formats at once (a polyglot). PE headers that start beyond the first 4 KiB are not recognized.
 - **Concurrent modification is detected on a best-effort basis, never prevented.** These can go unnoticed:
   - changes within the file system's timestamp granularity that keep the size;

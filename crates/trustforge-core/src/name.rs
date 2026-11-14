@@ -29,11 +29,14 @@ pub enum NameError {
     },
 }
 
-/// Characters that are escaped whenever untrusted text is displayed: C0 and
-/// C1 control characters (including ESC, which starts terminal escape
-/// sequences), DEL, Unicode bidirectional controls, and the line and
-/// paragraph separators.
+/// Characters that are escaped whenever untrusted text is displayed, and
+/// rejected in names and strict JSON: C0 and C1 control characters
+/// (including ESC, which starts terminal escape sequences), DEL, Unicode
+/// bidirectional controls, the line and paragraph separators, and the 66
+/// noncharacters (U+FDD0–U+FDEF and the last two code points of every
+/// plane), which I-JSON (RFC 7493) forbids.
 pub const fn is_unsafe_to_display(c: char) -> bool {
+    let code = c as u32;
     matches!(
         c,
         '\u{0}'..='\u{1f}'
@@ -45,7 +48,8 @@ pub const fn is_unsafe_to_display(c: char) -> bool {
             | '\u{2066}'..='\u{2069}'
             | '\u{2028}'
             | '\u{2029}'
-    )
+            | '\u{fdd0}'..='\u{fdef}'
+    ) || code & 0xfffe == 0xfffe
 }
 
 /// Characters never allowed in a name or a symlink target: everything that
@@ -101,6 +105,18 @@ fn validate_text(bytes: &[u8]) -> Result<&str, NameError> {
 pub struct RelPath(String);
 
 impl RelPath {
+    /// Parses a relative path: one or more [valid names](validate_name)
+    /// separated by single `/`, with no leading or trailing `/`.
+    pub fn parse(text: &str) -> Result<RelPath, NameError> {
+        if text.is_empty() {
+            return Err(NameError::Empty);
+        }
+        for component in text.split('/') {
+            validate_name(component.as_bytes())?;
+        }
+        Ok(RelPath(text.to_owned()))
+    }
+
     /// The path as text.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -171,6 +187,9 @@ mod tests {
             || [0x061c, 0x200e, 0x200f, 0x2028, 0x2029].contains(&code)
             || (0x202a..=0x202e).contains(&code)
             || (0x2066..=0x2069).contains(&code)
+            || (0xfdd0..=0xfdef).contains(&code)
+            || code % 0x10000 == 0xfffe
+            || code % 0x10000 == 0xffff
     }
 
     #[test]
@@ -203,9 +222,31 @@ mod tests {
             Err(NameError::ForbiddenChar { code: 0x2f })
         );
         for c in [
-            '\0', '\t', '\n', '\r', '\u{1b}', '\u{7f}', '\u{80}', '\u{9b}', '\u{9f}', '\\',
-            '\u{61c}', '\u{200e}', '\u{200f}', '\u{202a}', '\u{202e}', '\u{2066}', '\u{2069}',
-            '\u{2028}', '\u{2029}',
+            '\0',
+            '\t',
+            '\n',
+            '\r',
+            '\u{1b}',
+            '\u{7f}',
+            '\u{80}',
+            '\u{9b}',
+            '\u{9f}',
+            '\\',
+            '\u{61c}',
+            '\u{200e}',
+            '\u{200f}',
+            '\u{202a}',
+            '\u{202e}',
+            '\u{2066}',
+            '\u{2069}',
+            '\u{2028}',
+            '\u{2029}',
+            '\u{fdd0}',
+            '\u{fdef}',
+            '\u{fffe}',
+            '\u{ffff}',
+            '\u{1fffe}',
+            '\u{10ffff}',
         ] {
             let name = format!("x{c}y");
             assert_eq!(
@@ -235,6 +276,26 @@ mod tests {
     }
 
     #[test]
+    fn rel_paths_parse_component_by_component() {
+        for ok in ["a", "a/b", "dir/sub/file.txt", "\u{e4}/b"] {
+            assert_eq!(RelPath::parse(ok).unwrap().as_str(), ok);
+        }
+        assert_eq!(RelPath::parse(""), Err(NameError::Empty));
+        for bad in [
+            "/a",
+            "a/",
+            "a//b",
+            "./a",
+            "a/../b",
+            "..",
+            "a\\b",
+            "a/\u{202e}",
+        ] {
+            assert!(RelPath::parse(bad).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
     fn rel_paths_join_with_slashes() {
         let a = RelPath::child(None, "a");
         let ab = RelPath::child(Some(&a), "b");
@@ -244,7 +305,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn validator_matches_the_spec(s in "\\PC{0,4}|[\\x00-\\x{30}\\x{7e}-\\x{a0}\\x{600}-\\x{620}\\x{2000}-\\x{2070}\\\\/.]{0,4}") {
+        fn validator_matches_the_spec(s in "\\PC{0,4}|[\\x00-\\x{30}\\x{7e}-\\x{a0}\\x{600}-\\x{620}\\x{2000}-\\x{2070}\\x{fdc0}-\\x{fdf0}\\x{fff0}-\\x{ffff}\\\\/.]{0,4}") {
             let expected_ok = !s.is_empty()
                 && s != "."
                 && s != ".."

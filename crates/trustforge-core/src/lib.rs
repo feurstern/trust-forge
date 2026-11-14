@@ -24,6 +24,8 @@
 pub mod digest;
 pub mod format;
 pub mod inspect;
+pub mod json;
+pub mod manifest;
 pub mod name;
 // Only directory traversal, which is Unix-only, writes NAR.
 #[cfg_attr(not(unix), allow(dead_code))]

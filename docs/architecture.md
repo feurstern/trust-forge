@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status:** Milestone 1. Artifact inspection and hashing are implemented (the `digest`, `format`, `name` and `inspect` modules). Everything described as "planned" is not implemented yet; each part arrives in the milestone named next to it, with its tests. Planned signatures are sketches that are finalized when their milestone lands.
+> **Status:** Milestone 2. Artifact inspection and hashing (the `digest`, `format`, `name` and `inspect` modules) and manifests (the `json` and `manifest` modules) are implemented. Everything described as "planned" is not implemented yet; each part arrives in the milestone named next to it, with its tests. Planned signatures are sketches that are finalized when their milestone lands.
 
 TrustForge is a Rust workspace with a reusable library and a command-line tool. This document describes how the workspace is organized, the planned library APIs, the artifact model, the rebuild engine, and the decisions behind them. What results *mean* is defined in [verification-semantics.md](verification-semantics.md), and what TrustForge defends against is in [threat-model.md](threat-model.md).
 
@@ -23,9 +23,11 @@ TrustForge is a Rust workspace with a reusable library and a command-line tool. 
 │   ├── trustforge-cli/          binary `trustforge`: argument parsing, rendering, exit codes
 │   ├── trustforge-rebuild/      (planned, M4) source acquisition, container runtime driver
 │   └── trustforge-provenance/   (planned, M5) DSSE, in-toto, SLSA, Sigstore, trust policy
+├── fuzz/                        cargo-fuzz targets (nightly; a separate workspace)
 ├── fixtures/nar/                reference NAR files produced by Nix, byte-exact on every platform
-├── scripts/nar-reference.sh     generates them, once, in a pinned container
-└── docs/
+├── fixtures/manifests/v0/       manifest fixtures: valid, invalid, created, and reference serializations
+├── scripts/                     one-time generators and checks for the fixtures (Nix, ECMAScript, ajv)
+└── docs/                        documentation, including schemas/manifest-v0.schema.json
 ```
 
 Dependency direction: `cli → {core, rebuild, provenance}`, `rebuild → core`, `provenance → core`. `core` depends on no other workspace crate.
@@ -52,11 +54,12 @@ Crate boundaries sit where the **dependency footprint or the security surface** 
 | 3 | **Synchronous APIs, no async runtime.** | The work is disk- and CPU-bound, and process supervision is blocking. If a networked integration ever needs async, it stays confined to `trustforge-provenance`. |
 | 4 | **Closed set of digest algorithms** (an enum), with no pluggable hasher trait. | An open extension point would let weak algorithms in. One streaming pass must feed several algorithms anyway. |
 | 5 | **Directory tree digests hash the NAR serialization** of the tree (the Nix Archive format). | An existing, documented, injective serialization that covers the executable bit, symlinks and empty directories, so no new format is needed. Values can be cross-checked with `nix hash path`. |
-| 6 | **Strict JSON parsing.** Input is parsed into an internal `StrictValue` tree, then converted to typed structures by hand-written code. | Rejects duplicate keys, case variants of known fields and other parser-differential tricks that serde's derived deserializers accept silently. No `serde(flatten)` or `untagged`. |
+| 6 | **Strict JSON parsing.** Input is parsed into an internal `StrictValue` tree, then converted to typed structures by hand-written code. | Rejects duplicate keys, case variants of known fields and other parser-differential tricks that serde's derived deserializers accept silently. No `serde(flatten)` or `untagged`. Implemented in M2 (`trustforge_core::json`): `serde_json` only tokenizes, and every value is built by TrustForge's own visitor, which enforces the rules. |
 | 7 | The **engine is composed of `Check` implementations.** | Lets `rebuild` and `provenance` plug checks in without `core` depending on them, and makes "evidence supplied but no check can evaluate it" an explicit `UNSUPPORTED` result. |
 | 8 | **Rebuild isolation is delegated to a container runtime through its CLI** (Docker first, Podman best-effort). There is no host-build mode. | TrustForge does not implement its own sandbox. The CLI driver avoids an async Docker-only client library and works with both runtimes. |
 | 9 | **Reports contain no wall-clock timestamps unless requested.** | Reports stay deterministic and can be snapshot-tested. |
 | 10 | **Directory traversal uses `rustix` system calls directly, not `cap-std`, and is Unix-only.** | Result of the M1 traversal evaluation. TrustForge never resolves a multi-component path below the root: it opens only single names returned by `readdir`, relative to the parent directory's descriptor, with no-follow flags. The exact POSIX calls it needs (`openat`, `fstatat`, `readlinkat`, `fstat`, `getdents`) are what `rustix` exposes safely, so the semantics the threat model relies on are those of the documented calls. `cap-std`'s sandboxed path resolution, and its Windows support, are not needed: directory inspection is unsupported on Windows (open question d, decided in M1), because tree digests cover the executable bit, which Windows lacks. `cap-std` would also add about eight crates. |
+| 11 | **Type URIs live under `https://feurstern.github.io/trust-forge`** (`…/manifest/v0`, `…/build/cargo/v0`, `…/report/v0`, `…/rebuild-record/v0`). | Settles open question (a) in M2. The project's GitHub Pages address: available now, under the project's control, and able to serve each specification at its URI later, as GitHub does for its own build types. A rename of the account or repository would change it; `v0` is unstable, so that would be a listed breaking change. |
 
 ## Library API (`trustforge-core`)
 
@@ -92,9 +95,23 @@ pub struct InspectOptions { pub algorithms: AlgorithmSet, pub limits: Limits }
 pub fn inspect_path(path: &Path, opts: &InspectOptions) -> Result<Inspection, InspectError>;
 pub fn inspect_reader(name: &str, r: impl Read, opts: &InspectOptions) -> Result<Inspection, InspectError>;
 
-// manifest (M2)
-pub fn parse_manifest(bytes: &[u8], limits: &Limits) -> Result<ParsedManifest, ManifestError>;
+// json (implemented, M2)
+pub fn parse(bytes: &[u8], limits: &JsonLimits) -> Result<StrictValue, JsonError>;   // strict I-JSON
+pub fn to_canonical(value: &StrictValue) -> Vec<u8>;   // RFC 8785 (JCS)
+pub fn to_pretty(value: &StrictValue) -> Vec<u8>;      // same order and escaping, indented
+pub struct Pointer;                                    // RFC 6901 location of every error
+
+// manifest (implemented, M2)
+pub fn parse_manifest(bytes: &[u8], opts: &ParseOptions) -> Result<ParsedManifest, ManifestError>;
+pub fn parse_build_definition(bytes: &[u8], opts: &ParseOptions) -> Result<(BuildDefinition, Vec<ManifestWarning>), ManifestError>;
 pub struct ParsedManifest { pub manifest: Manifest, pub file_digest: Digest, pub warnings: Vec<ManifestWarning> }
+impl Manifest {
+    pub fn from_inspection(inspection: &Inspection, name: Option<&str>) -> Result<Self, ManifestError>;
+    pub fn with_build_definition(self, definition: BuildDefinition) -> Self;
+    pub fn to_canonical_json(&self) -> Vec<u8>;
+    pub fn to_pretty_json(&self) -> Vec<u8>;
+}
+pub enum BuildDefinition { Cargo(CargoRecipe), Unsupported { build_type: String, raw: StrictValue } }
 
 // compare (M3)
 pub fn compare_paths(original: &Path, candidate: &Path, opts: &CompareOptions) -> Result<Comparison, CompareError>;
@@ -155,7 +172,7 @@ pub enum EntryKind {
 1. **The root.** The path the user gave is resolved by the operating system. If its last component (ignoring trailing slashes) is a symbolic link, it is followed once and the result says so. The resolved object must be a regular file or a directory; anything else is an error, and it is never opened. It is then opened without following a symlink that was not there a moment ago, `fstat` must show the same type, device and inode, and after the inspection the path must still lead to that object. Nothing below the root is ever resolved by path.
 2. **Entry types.** Each entry is examined with `fstatat(AT_SYMLINK_NOFOLLOW)` relative to its parent directory's descriptor, before anything is opened. Only regular files, directories and symbolic links are accepted. A FIFO, socket or device node is an error naming the path, and it is never opened. An entry swapped for one of these in between is opened once without blocking, and is never read.
 3. **Identity and modification checks.** A regular file is opened by its single name with `O_NOFOLLOW | O_NONBLOCK | O_NOCTTY | O_CLOEXEC`, and `fstat` must report the same type, device and inode. It is read for exactly its reported size; an early end of file, or any data beyond it, is an error. Afterwards its device, inode, permissions, link count, size, modification time and status-change time (with nanoseconds) must be unchanged, and its name must still refer to it. A directory must report unchanged metadata, and a non-zero link count, after it is listed and after its subtree is done, and its name must still refer to it. After the walk, a final pass examines every entry once more, through descriptors opened the same way, and its metadata must still match what was recorded when it was read. Because each entry was unchanged while it was read and is unchanged at the end, the result describes the tree at one moment (between the walk and the final pass) rather than a mix of states: a file moved from a finished directory into one not yet listed, or edited after it was hashed, is detected. Any difference is an error. The status-change time matters because a writer can reset the modification time, but not the status-change time. This detection is best effort: timestamp granularity, writes through shared memory maps, and network or FUSE file systems can hide changes. Digests always describe exactly the bytes read.
-4. **Names.** A name must be valid UTF-8, must not be empty, and must not contain U+0000–U+001F, U+007F–U+009F, `/`, `\`, U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069, U+2028 or U+2029. This list is fixed here; it does not follow new Unicode versions. A symlink target follows the same rules, except that `/`, `.` and `..` are allowed. Anything else is an error. Names are never converted lossily and are compared byte for byte with no Unicode normalization. `.` and `..` are skipped. A name listed twice is an error.
+4. **Names.** A name must be valid UTF-8, must not be empty, and must not contain U+0000–U+001F, U+007F–U+009F, `/`, `\`, U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069, U+2028, U+2029 or any of the 66 noncharacters (U+FDD0–U+FDEF and the last two code points of every plane: U+FFFE, U+FFFF, U+1FFFE, …, U+10FFFF). This list is fixed here; it does not follow new Unicode versions. A symlink target follows the same rules, except that `/`, `.` and `..` are allowed. Anything else is an error. Names are never converted lossily and are compared byte for byte with no Unicode normalization. `.` and `..` are skipped. A name listed twice is an error.
 5. **What is recorded.** Only the entry type, the **owner-execute bit** (`S_IXUSR`, exactly as in Nix), the size, the content digests and the symlink target are recorded. No digest covers setuid, setgid or sticky bits, group or other permission bits, ACLs, extended attributes (including file capabilities), ownership, timestamps, or hard-link identity. Empty directories are recorded.
 6. **Tree digest.** The tree digest is the hash of the tree's NAR serialization, written by a state machine that enforces the format's framing: a file accepts exactly its declared length, and names must strictly increase. Tree digests use their own digest-set keys (`narSha256`, …) and a separate type, so a file whose bytes happen to be a NAR serialization can never satisfy a tree claim. The implementation is checked against NAR files produced by Nix itself (`fixtures/nar`, generated by `scripts/nar-reference.sh`).
 7. **Boundaries.** A directory on a different device than its parent (a mount point, including a btrfs subvolume) is an error, and so is a directory that is one of its own ancestors (as a bind mount can make it). Nothing is excluded by default: `.git`, `.DS_Store` and every other entry are hashed.
@@ -205,8 +222,8 @@ Reproducibility evidence counts toward a verified result only when **this** Trus
 
 - **stdout** carries only the primary output. With `--format json`, it is exactly one JSON document.
 - **stderr** carries progress (only on a TTY), logs and warnings. The verdict is printed last.
-- Every untrusted string is passed through a single sanitizer before reaching a terminal. It escapes control characters, ANSI and OSC sequences, and bidi controls. JSON output spells the same characters as `\uXXXX` escapes, which leave every value unchanged.
-- Output files are written to a temporary file and atomically renamed. An existing symlink at the destination is never followed.
+- Every untrusted string is passed through a single sanitizer before reaching a terminal. It escapes control characters, ANSI and OSC sequences, bidi controls, line separators and noncharacters. JSON output spells the same characters as `\uXXXX` escapes (a surrogate pair beyond U+FFFF), which leave every value unchanged.
+- Output files are written to a temporary file and atomically renamed over the destination, which must be missing or a regular file. A symlink, FIFO, device or directory there is refused: renaming would replace the entry itself, and following a symlink would let whoever planted it choose the file written (implemented for `manifest create --output`).
 - Child processes get `/dev/null` as stdin and never get a TTY.
 
 ## Dependencies
@@ -219,12 +236,13 @@ Each dependency is added in the milestone that first needs it, and only after re
 | `assert_cmd` (dev) | CLI integration tests | M0 |
 | `sha2` (no default features), `blake3` | SHA-256/SHA-512 (RustCrypto, with runtime SHA-NI detection) and BLAKE3 (the official implementation; its build script assembles SIMD code, so building needs a C compiler; the `mmap` and `rayon` features stay off) | M1 |
 | `rustix` (`fs`, Unix only) | `openat`, `fstatat`, `readlinkat`, `fstat` and `getdents` relative to directory descriptors (decision 10) | M1 |
-| `serde` (derive) | Serializing results; never used to deserialize untrusted input (M2's strict parser does that) | M1 |
-| `serde_json` | JSON output (CLI); strict input parsing builds on it in M2 | M1–M2 |
+| `serde` (derive) | Serializing results; never used to derive deserializers for untrusted input | M1 |
+| `serde_json` | JSON output (CLI); the tokenizer under the strict JSON layer (core), whose values TrustForge's own visitor builds | M1–M2 |
 | `thiserror` | Library errors | M1 |
-| `tempfile` (dev) | Temporary trees in tests and benchmarks; private temporary directories in M4 | M1/M4 |
+| `tempfile` | Output files written to a private temporary file and renamed into place (CLI); temporary trees in tests and benchmarks; private directories in M4 | M1–M4 |
 | `proptest`, `divan` (dev) | Property tests; benchmarks with an allocation profiler | M1 |
 | `insta` (dev) | Snapshot tests of reports | M3 |
+| `libfuzzer-sys` (fuzz crate only) | Coverage-guided fuzz targets, built with a pinned nightly outside the main workspace. It bundles libFuzzer (NCSA license); the fuzz crate is never part of a release. | M2 |
 | `tracing`, `tracing-subscriber` | Diagnostics and logging, once there is something to log | M3–M4 |
 | `toml` | Reading Cargo and rustup configuration *as data* | M4 |
 | `object` | Executable section diagnostics | M4 |
@@ -244,7 +262,7 @@ Performance claims are made only from measurements. `cargo bench -p trustforge-c
 - hashing 256 MiB in memory, per algorithm and with all three in one pass (M1);
 - inspecting a 256 MiB file (M1);
 - inspecting a directory of 100,000 files (M1);
-- parsing a 4 MiB manifest (M2);
+- parsing and writing a 4 MiB manifest (M2, `--bench manifest`);
 - comparing large files (M3);
 - rendering reports (M3).
 
@@ -252,8 +270,7 @@ Results are published together with the hardware they ran on.
 
 ## Open design questions
 
-- The URI namespace for TrustForge's predicate, build, report and record types (written `<ns>` in the drafts).
-- Whether a manifest's 4 MiB size limit should grow for large directory artifacts (M2; see [manifest-spec.md](manifest-spec.md#open-items-before-v1)).
+- A more compact manifest form for very large directory artifacts, which today need a raised size limit (see [manifest-spec.md](manifest-spec.md#open-items-before-v1)).
 - Host `git` versus `gix` versus `git` inside a container for source acquisition (M4 spike).
 - Which Rust Sigstore library to use (M5 spike, judged on conformance results).
 - The trust policy file format and identity-matching rules (M5).

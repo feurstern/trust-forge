@@ -8,6 +8,15 @@ updates:
       cargo-dependencies:
         patterns: ["*"]
 
+  # The fuzz targets are a separate Cargo workspace.
+  - package-ecosystem: cargo
+    directory: /fuzz
+    schedule:
+      interval: weekly
+    groups:
+      fuzz-dependencies:
+        patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

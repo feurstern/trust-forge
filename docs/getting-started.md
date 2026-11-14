@@ -1,6 +1,6 @@
 # Getting Started
 
-> **Status:** pre-alpha. TrustForge can inspect and hash artifacts. **It does not verify anything yet**, so do not use it for security decisions. See the [roadmap](roadmap.md).
+> **Status:** pre-alpha. TrustForge can inspect and hash artifacts and write and check manifests. **It does not verify anything yet**, so do not use it for security decisions. See the [roadmap](roadmap.md).
 
 ## Installation
 
@@ -63,6 +63,25 @@ Get everything as JSON, including each entry's digests:
 ```sh
 trustforge inspect --format json dist/ > dist.inspection.json
 ```
+
+## Write a manifest
+
+A manifest records an artifact's digests (for a directory, its full tree) as an [in-toto](https://in-toto.io/) Statement, so that others can later check the artifact against it:
+
+```sh
+trustforge manifest create target/release/myapp -o myapp.manifest.json
+trustforge manifest create dist/ -o dist.manifest.json
+```
+
+To claim how the artifact is built, put a `buildDefinition` object in a file (the format is in the [manifest specification](manifest-spec.md#build-type-httpsfeursterngithubiotrust-forgebuildcargov0)) and add `--build-definition recipe.json`. Every value is checked before anything is written; for example, a binary name that starts with `-` is refused.
+
+Check a manifest, yours or someone else's:
+
+```sh
+trustforge manifest validate dist.manifest.json
+```
+
+Validation reads the document strictly and checks every rule of the specification, then shows the SHA-256 that identifies the manifest's exact bytes. It does not look at the artifact, and it cannot tell who wrote the manifest: a valid manifest is a well-formed claim, not evidence. Comparing an artifact with its manifest arrives in Milestone 3.
 
 ## What a digest does and does not tell you
 

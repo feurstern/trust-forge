@@ -116,7 +116,7 @@ A non-zero exit code never means success, and a panic can never produce exit cod
 
 ## Reports
 
-- **JSON reports** have a versioned type (`<ns>/report/v0`; see [manifest-spec.md](manifest-spec.md#namespace)). They are deterministic: no wall-clock timestamp unless `--timestamp` is given, and stable ordering. With `--format json`, stdout contains exactly one JSON document, and logs go to stderr.
+- **JSON reports** have a versioned type (`https://feurstern.github.io/trust-forge/report/v0`; see [manifest-spec.md](manifest-spec.md#namespace)). They are deterministic: no wall-clock timestamp unless `--timestamp` is given, and stable ordering. With `--format json`, stdout contains exactly one JSON document, and logs go to stderr.
 - **Terminal reports** show one line per dimension, the evidence and its origin, the limitations, and the overall status **last**. All untrusted text is escaped.
 - **`trustforge report <file>`** re-renders a saved report under the banner *"loaded from file: not re-verified; reports are unsigned"*. It exits 0 when rendering succeeds, whatever the report says, so a stored report can never be mistaken for a fresh verification.
 

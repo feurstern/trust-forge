@@ -20,6 +20,8 @@ Development proceeds in milestones (see [docs/roadmap.md](docs/roadmap.md)). Eac
    ```
 
 3. Performance-sensitive changes should include benchmark results: `cargo bench -p trustforge-core`. Never claim a performance change without a measurement.
+4. Parser changes should be fuzzed: `cargo +nightly fuzz run manifest -- -dict=fuzz/manifest.dict` (needs `cargo install cargo-fuzz`). CI fuzzes every target weekly.
+5. After changing a manifest fixture, regenerate its reference serializations with `node scripts/json-reference.mjs`, and after changing the JSON Schema or the fixtures, run `sh scripts/check-schema.sh` (it downloads ajv through npx).
 
 The minimum supported Rust version (MSRV) is `rust-version` in `Cargo.toml` (currently 1.88), and CI checks it. Dependabot does not update `rust-toolchain.toml`, so toolchain upgrades are done by hand in their own pull request.
 
@@ -30,7 +32,7 @@ The minimum supported Rust version (MSRV) is `rust-version` in `Cargo.toml` (cur
 - **No placeholders in verification logic.** `todo!()`, `unimplemented!()` and mock verification results must never reach production code (clippy enforces the first two).
 - **No panics on untrusted input.** Every artifact, manifest, provenance document, report and build output is untrusted. Use typed errors (`thiserror` in libraries) instead of `unwrap`/`expect`.
 - **Tests come with the change.** New behavior needs unit tests. Security-relevant behavior also needs a regression test that would fail if the protection were removed.
-- **Tests must not need the network.** Tests that need Docker or network access are opt-in and clearly marked. Reference data produced by external tools (such as `fixtures/nar`, from Nix) is generated once by a committed script and checked in.
+- **Tests must not need the network.** Tests that need Docker or network access are opt-in and clearly marked. Reference data produced by external tools (such as `fixtures/nar`, from Nix, and `fixtures/manifests/v0/canonical`, from ECMAScript) is generated once by a committed script and checked in.
 - **Deterministic output.** The same inputs must produce byte-identical machine-readable output: sorted collections, no timestamps unless requested.
 - **No new dependencies without justification.** Explain in the pull request what the crate does for us, its maintenance status, license, dependency footprint and MSRV, and the alternatives you considered. `cargo deny check` must pass.
 - **Keep the docs honest.** Changes to security-sensitive behavior must update [docs/threat-model.md](docs/threat-model.md). Never mark a standard as supported in [docs/standards.md](docs/standards.md) until it is implemented and tested, and never describe a guarantee the code cannot demonstrate.
