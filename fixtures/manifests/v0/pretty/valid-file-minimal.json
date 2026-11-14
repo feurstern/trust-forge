@@ -1,0 +1,17 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicate": {
+    "artifact": {
+      "kind": "file"
+    }
+  },
+  "predicateType": "https://feurstern.github.io/trust-forge/manifest/v0",
+  "subject": [
+    {
+      "digest": {
+        "sha256": "d1676dcb0cd0903841cf4953ba161eb34601a821d45ae551049318597b7aa5b9"
+      },
+      "name": "tool"
+    }
+  ]
+}
