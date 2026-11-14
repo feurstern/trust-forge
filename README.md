@@ -4,10 +4,11 @@
 
 TrustForge is an open-source Rust library and command-line tool for checking where a compiled artifact came from. It will inspect an artifact, check its digests, evaluate signatures and build provenance when they are supplied, and rebuild it from its claimed source to see whether the result is byte-for-byte identical. It then reports exactly which of these checks were done, what they established, and what they did not.
 
-> **Status: pre-alpha (Milestone 1: inspection and hashing).**
-> TrustForge can inspect artifacts and compute their digests, but it does not
-> verify anything yet: it compares those digests with nothing. Do not use it
-> for security decisions. See the [roadmap](docs/roadmap.md).
+> **Status: pre-alpha (Milestone 2: manifests).**
+> TrustForge can inspect artifacts, compute their digests, and write and check
+> manifests that claim them, but it does not verify anything yet: nothing
+> compares an artifact with a manifest. Do not use it for security decisions.
+> See the [roadmap](docs/roadmap.md).
 
 ## The problem
 
@@ -51,22 +52,26 @@ claimed source ──► rebuild in an isolated container ──► byte compari
 
 ## What TrustForge verifies today
 
-**Nothing.** What exists today is inspection:
+**Nothing.** What exists today is inspection and manifests:
 
 ```sh
 trustforge inspect target/release/myapp      # kind, size, format, SHA-256/SHA-512/BLAKE3
 trustforge inspect dist/                     # tree digests over the directory's NAR serialization
 trustforge inspect --format json - < app.tar.gz
+trustforge manifest create dist/ -o dist.manifest.json   # an in-toto Statement claiming dist/
+trustforge manifest validate dist.manifest.json          # strict check against the v0 rules
 ```
 
-`inspect` reports which bytes an artifact contains: its size, its format (from header bytes), and its digests. For a directory, the tree digest covers every file's contents and executable bit, every symlink's target, and empty directories, and equals the NAR hash Nix computes for the same directory (`nix-hash --type sha256`). Symbolic links are recorded and never followed, and special files are never opened. Comparing digests against references, which is where verification starts, arrives in Milestone 3. See [getting started](docs/getting-started.md).
+`inspect` reports which bytes an artifact contains: its size, its format (from header bytes), and its digests. For a directory, the tree digest covers every file's contents and executable bit, every symlink's target, and empty directories, and equals the NAR hash Nix computes for the same directory (`nix-hash --type sha256`). Symbolic links are recorded and never followed, and special files are never opened.
+
+A **manifest** records those digests, and optionally the recipe that builds the artifact, as an [in-toto](https://in-toto.io/) Statement ([specification](docs/manifest-spec.md)). TrustForge reads manifests strictly: duplicate keys, case-variant field names, out-of-range numbers, control characters, and recipe values that could inject command-line options are all rejected. A manifest is a claim, not evidence. Comparing an artifact with its manifest, which is where verification starts, arrives in Milestone 3. See [getting started](docs/getting-started.md).
 
 The [roadmap](docs/roadmap.md) lists when each capability is planned:
 
 | Capability | Planned for |
 |---|---|
 | Artifact inspection and SHA-256 / SHA-512 / BLAKE3 hashing | Milestone 1 (available) |
-| TrustForge manifest (draft v0) | Milestone 2 |
+| TrustForge manifest (v0): create, validate, canonical serialization | Milestone 2 (available) |
 | Verification engine, JSON and terminal reports, stable exit codes | Milestone 3 |
 | Reproducible rebuilds of Rust/Cargo projects (Linux, container-isolated) | Milestone 4 |
 | Sigstore signatures, in-toto attestations, SLSA provenance | Milestone 5 |
@@ -88,7 +93,7 @@ See [known limitations](docs/limitations.md) for the full list.
 - [Architecture](docs/architecture.md): workspace layout, APIs, key decisions
 - [Threat model and security model](docs/threat-model.md)
 - [Verification semantics](docs/verification-semantics.md): statuses, policies, exit codes
-- [Manifest specification (draft v0)](docs/manifest-spec.md)
+- [Manifest specification (v0)](docs/manifest-spec.md) and its [JSON Schema](docs/schemas/manifest-v0.schema.json)
 - [Supported standards](docs/standards.md)
 - [Known limitations](docs/limitations.md)
 - [Roadmap](docs/roadmap.md)
