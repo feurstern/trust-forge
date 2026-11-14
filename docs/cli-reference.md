@@ -1,6 +1,6 @@
 # CLI Reference
 
-> **Status:** pre-alpha. `inspect` is the only command. Output formats are version 0 and may change in any release; every change is listed in the [CHANGELOG](../CHANGELOG.md).
+> **Status:** pre-alpha. The commands are `inspect`, `manifest create` and `manifest validate`. None of them verifies an artifact. Output formats are version 0 and may change in any release; every change is listed in the [CHANGELOG](../CHANGELOG.md).
 
 ## `trustforge inspect`
 
@@ -69,11 +69,11 @@ For a directory, the digest lines are the tree digests (`narBlake3`, `narSha256`
 
 `Mode` and `Modified` describe the given path, not its contents. They are not covered by any digest and can differ between copies of the same artifact.
 
-Every string that comes from the artifact, and every error message, is passed through one sanitizer before it reaches the terminal. Control characters (including the ESC that starts terminal escape sequences), bidi controls and line separators are shown as `\u{…}`. Bytes that are not valid UTF-8 are shown as `\xNN`.
+Every string that comes from the artifact, and every error message, is passed through one sanitizer before it reaches the terminal. Control characters (including the ESC that starts terminal escape sequences), bidi controls, line separators and noncharacters are shown as `\u{…}`. Bytes that are not valid UTF-8 are shown as `\xNN`.
 
 ### JSON output
 
-`--format json` writes exactly one JSON document to standard output. Object keys are sorted at every level. Control characters, bidi controls and line separators inside strings are written as `\uXXXX` escapes, so the document is safe to print to a terminal and still decodes to the exact values.
+`--format json` writes exactly one JSON document to standard output. Object keys are sorted at every level. Control characters, bidi controls, line separators and noncharacters inside strings are written as `\uXXXX` escapes (a surrogate pair beyond U+FFFF), so the document is safe to print to a terminal and still decodes to the exact values.
 
 The document contains only what is derived from the artifact's content and structure, plus the name it was given, so identical artifacts inspected under the same name produce byte-identical JSON. File-system metadata (`Mode`, `Modified`) is left out.
 
@@ -177,3 +177,78 @@ Format detection reads fixed header fields only. It does not validate the file, 
 | 101 | Internal error (a panic). Please report it. |
 
 Standard output carries only the result. Errors and hints go to standard error, and nothing is written to standard output when inspection fails.
+
+## `trustforge manifest create`
+
+```text
+trustforge manifest create [OPTIONS] <PATH>
+```
+
+Inspects an artifact (exactly as [`inspect`](#trustforge-inspect) does) and writes a [manifest](manifest-spec.md) for it: an in-toto Statement that claims its digests and, optionally, the recipe that builds it.
+
+**Creating a manifest verifies nothing.** It records what the artifact contains now. Whoever later checks the artifact against the manifest learns only that the two agree; an unsigned manifest does not show who wrote it.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `<PATH>`, `-a`, `--max-bytes`, `--max-entries`, `--max-depth` | | As for [`inspect`](#arguments-and-options). |
+| `--name <NAME>` | the file's name | The subject name of a file or of standard input, which needs one. It must be a valid relative path under the [name rules](manifest-spec.md#directory-artifacts). Directory subjects are always named by their paths. |
+| `--build-definition <FILE>` | none | Embeds a claimed recipe: `FILE` holds a JSON `buildDefinition` object, validated with every rule of the [`cargo/v0` build type](manifest-spec.md#build-type-httpsfeursterngithubiotrust-forgebuildcargov0) before the artifact is inspected. A recipe of any other build type, such as a misspelled one, is refused. |
+| `--canonical` | off | Write the RFC 8785 canonical form (no whitespace) instead of the indented form. Both are deterministic. |
+| `-o`, `--output <FILE>` | standard output | Write to `FILE`, which must not exist or must be a regular file. Anything else, such as a symbolic link, a FIFO, a directory or a device like `/dev/null`, is refused before the artifact is inspected: renaming would replace it, and following a link would let whoever planted it choose the file written. The manifest is written to a temporary file in the same directory and then renamed over `FILE`, so readers never see a partial file. On Unix the file is created with mode `0644`. |
+| `--max-manifest-size <BYTES>` | 4194304 (4 MiB) | Refuse to write a larger manifest, or to read a larger recipe file. Anyone who reads the manifest needs at least the same limit. |
+
+The created manifest is checked with the same rules as `manifest validate` before it is written. Without `sha256` among the algorithms, a warning notes that other in-toto tools may not recognize the subjects. Write the manifest outside the directory it describes: a manifest inside the tree would change the tree.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | The manifest was written. |
+| 2 | Usage error, an invalid `--name`, or a recipe file that is invalid or of another build type. |
+| 4 | The artifact could not be inspected or described (for example, a directory without regular files), the manifest would exceed the size limit, or it could not be written, including to a destination that is not a regular file. |
+
+## `trustforge manifest validate`
+
+```text
+trustforge manifest validate [OPTIONS] <FILE>
+```
+
+Reads a manifest strictly and checks it against every rule of the [version 0 specification](manifest-spec.md). `FILE` may be `-` for standard input.
+
+**Validation looks only at the document.** It does not read the artifact, and it cannot tell who wrote the manifest: a valid manifest is still only a claim.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--strict` | off | Treat every warning as an error: unknown fields, unknown or insecure digest algorithms, a subject without `sha256`, an unsupported build type. |
+| `--format <text\|json>` | `text` | Output format. |
+| `--max-manifest-size <BYTES>` | 4194304 (4 MiB) | Reject larger documents without parsing them. |
+
+The text output shows the SHA-256 of the exact bytes read, which identifies the manifest, then the artifact, the recipe, and every warning with its location as a JSON Pointer:
+
+```text
+$ trustforge manifest validate fixtures/manifests/v0/valid/file-recipe.json
+Manifest   fixtures/manifests/v0/valid/file-recipe.json
+SHA-256    …                (identifies these exact bytes)
+Artifact   file of 26 bytes, subject application
+Recipe     cargo/v0: binary application for x86_64-unknown-linux-gnu, toolchain 1.99.1
+Source     https://github.com/example/project.git at refs/tags/v1.2.3, commit 8c3e1f6b2a9d4e5f60718293a4b5c6d7e8f90a1b
+Image      pkg:docker/library/rust@1.99.1-slim-bookworm?repository_url=docker.io, sha256:5d1f…
+Warnings   none
+
+Valid: well-formed and follows the manifest v0 rules. A manifest is a claim, not evidence: …
+```
+
+An invalid manifest is reported on standard error as `error: <FILE>: <pointer>: <rule>`, and nothing is written to standard output.
+
+With `--format json`, standard output is exactly one document whenever the file could be read, whether or not the manifest is valid. A file that cannot be read is reported on standard error only, with exit code 4.
+
+| Field | Meaning |
+|---|---|
+| `valid` | Whether the manifest passed. |
+| `manifestDigest` | `{"sha256": …}` of the exact bytes read; `null` for a document over the size limit, which is not read in full. |
+| `error` | For an invalid manifest: `message`, and `pointer` (RFC 6901) when the problem has a location: every rule violation, and strict-JSON violations such as a duplicate key. A syntax error has none; its `message` gives the line and column. |
+| `predicateType`, `subjects`, `artifact`, `buildType`, `warnings` | For a valid manifest: its type, number of subjects, artifact `kind`, `size` and (for a directory) number of `entries`, build type (`null` without a recipe), and the warnings as `{"pointer", "message"}`. |
+
+| Exit code | Meaning |
+|---|---|
+| 0 | Valid (possibly with warnings). |
+| 2 | Invalid, unsupported (another version or statement type), too large, or rejected in strict mode. |
+| 4 | The file could not be read. |
