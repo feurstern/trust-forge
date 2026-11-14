@@ -23,17 +23,21 @@ pub fn json(inspection: &Inspection) -> Result<String, serde_json::Error> {
 }
 
 /// `serde_json` escapes C0 control characters but writes DEL, C1 controls,
-/// bidi controls and the line separators raw, and a terminal would act on
-/// them. They can only occur inside JSON strings (everything else in the
-/// document is ASCII punctuation, digits, letters, spaces and newlines),
-/// where `\uXXXX` is an equivalent spelling: the escaped document has
-/// exactly the same values.
-fn escape_for_terminal(json: &str) -> String {
+/// bidi controls, the line separators and noncharacters raw, and a terminal
+/// would act on the controls. They can only occur inside JSON strings
+/// (everything else in the document is ASCII punctuation, digits, letters,
+/// spaces and newlines), where `\uXXXX` escapes are an equivalent spelling:
+/// the escaped document has exactly the same values.
+pub(crate) fn escape_for_terminal(json: &str) -> String {
     let mut out = String::with_capacity(json.len());
     for c in json.chars() {
         if c > '\u{1f}' && is_unsafe_to_display(c) {
-            // Every such character is in the Basic Multilingual Plane.
-            let _ = write!(out, "\\u{:04x}", u32::from(c));
+            // Noncharacters such as U+1FFFE lie outside the Basic
+            // Multilingual Plane; JSON spells them as a surrogate pair.
+            let mut units = [0; 2];
+            for unit in c.encode_utf16(&mut units) {
+                let _ = write!(out, "\\u{unit:04x}");
+            }
         } else {
             out.push(c);
         }
@@ -244,11 +248,11 @@ mod tests {
 
     #[test]
     fn json_escapes_what_serde_json_leaves_raw_without_changing_values() {
-        let raw = "{\n  \"name\": \"x\u{7f}\u{9b}31m\u{202e}\u{2028}y\\u001b\"\n}";
+        let raw = "{\n  \"name\": \"x\u{7f}\u{9b}31m\u{202e}\u{2028}y\\u001b\u{fffe}\u{1fffe}\u{10ffff}z\"\n}";
         let escaped = escape_for_terminal(raw);
         assert_eq!(
             escaped,
-            "{\n  \"name\": \"x\\u007f\\u009b31m\\u202e\\u2028y\\u001b\"\n}"
+            "{\n  \"name\": \"x\\u007f\\u009b31m\\u202e\\u2028y\\u001b\\ufffe\\ud83f\\udffe\\udbff\\udfffz\"\n}"
         );
         let before: serde_json::Value = serde_json::from_str(raw).unwrap();
         let after: serde_json::Value = serde_json::from_str(&escaped).unwrap();
