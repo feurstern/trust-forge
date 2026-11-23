@@ -1,6 +1,6 @@
 [package]
 name = "trustforge-core"
-description = "Core library of TrustForge: artifact inspection and hashing. Manifests and verification follow in later milestones. Pre-alpha."
+description = "Core library of TrustForge: artifact inspection and hashing, manifests, and integrity verification with reports. Signatures, provenance and rebuilds follow in later milestones. Pre-alpha."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -32,6 +32,10 @@ harness = false
 
 [[bench]]
 name = "manifest"
+harness = false
+
+[[bench]]
+name = "compare"
 harness = false
 
 [lints]
