@@ -122,6 +122,13 @@ impl RelPath {
         &self.0
     }
 
+    /// The order of entries in a tree: component by component, each compared
+    /// by bytes, so a directory comes right before its contents. Thus `a` <
+    /// `a/b` < `a-b`, unlike the order of the paths as strings.
+    pub(crate) fn tree_cmp(&self, other: &RelPath) -> std::cmp::Ordering {
+        self.0.split('/').cmp(other.0.split('/'))
+    }
+
     /// `parent/name`, or just `name` at the top of the tree. The caller has
     /// validated `name`.
     #[cfg_attr(not(unix), allow(dead_code))]
@@ -136,6 +143,44 @@ impl RelPath {
 impl fmt::Display for RelPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+/// Displays a value taken from a document or an artifact in double quotes,
+/// so that it can never be read as part of the text around it.
+///
+/// `"` and `\` are escaped with a backslash, and characters unsafe for a
+/// terminal as `\u{…}`, so the value cannot end the quotation early, and
+/// any text that follows it is TrustForge's own.
+#[derive(Clone, Copy)]
+pub struct Quoted<'a>(pub &'a str);
+
+impl fmt::Display for Quoted<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("\"")?;
+        for c in self.0.chars() {
+            match c {
+                '"' => f.write_str("\\\"")?,
+                '\\' => f.write_str("\\\\")?,
+                c if is_unsafe_to_display(c) => write!(f, "\\u{{{:x}}}", u32::from(c))?,
+                c => fmt::Write::write_char(f, c)?,
+            }
+        }
+        f.write_str("\"")
+    }
+}
+
+impl fmt::Debug for Quoted<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
+/// `text` cut to at most `max` characters, with `…` in place of the rest.
+pub(crate) fn shortened(text: &str, max: usize) -> String {
+    match text.char_indices().nth(max) {
+        Some((cut, _)) => format!("{}…", &text[..cut]),
+        None => text.to_owned(),
     }
 }
 
@@ -293,6 +338,46 @@ mod tests {
         ] {
             assert!(RelPath::parse(bad).is_err(), "{bad:?}");
         }
+    }
+
+    #[test]
+    fn quoted_values_cannot_end_their_quotation() {
+        assert_eq!(Quoted("https://x/y").to_string(), r#""https://x/y""#);
+        // A value that tries to close the quotation and continue as prose.
+        let hostile = r#"x") and TrustForge verified it ("y"#;
+        let shown = Quoted(hostile).to_string();
+        assert_eq!(shown, r#""x\") and TrustForge verified it (\"y""#);
+        // The only unescaped quotation marks are the first and the last.
+        let inner = &shown[1..shown.len() - 1];
+        assert!(
+            !inner
+                .replace(r#"\\"#, "")
+                .replace(r#"\""#, "")
+                .contains('"')
+        );
+        assert_eq!(Quoted("a\\b").to_string(), r#""a\\b""#);
+        assert_eq!(
+            Quoted("\u{1b}[2J\u{202e}").to_string(),
+            r#""\u{1b}[2J\u{202e}""#
+        );
+    }
+
+    #[test]
+    fn shortening_keeps_whole_characters() {
+        assert_eq!(shortened("abc", 3), "abc");
+        assert_eq!(shortened("abcd", 3), "abc…");
+        assert_eq!(shortened("ääää", 2), "ää…");
+    }
+
+    #[test]
+    fn tree_order_is_component_wise() {
+        use std::cmp::Ordering;
+        let p = |s: &str| RelPath::parse(s).unwrap();
+        assert_eq!(p("a").tree_cmp(&p("a/b")), Ordering::Less);
+        assert_eq!(p("a/b").tree_cmp(&p("a-b")), Ordering::Less);
+        assert_eq!(p("B").tree_cmp(&p("a")), Ordering::Less);
+        assert_eq!(p("a/z").tree_cmp(&p("aa")), Ordering::Less);
+        assert_eq!(p("a").tree_cmp(&p("a")), Ordering::Equal);
     }
 
     #[test]
