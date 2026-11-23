@@ -1,0 +1,45 @@
+Artifact           dist: directory, 13 bytes in regular files
+                   narBlake3 09b7831ff7f42ea72b865bc59f02618d76d8b673d1f74d2c89d8b93e541105ca
+                   narSha256 a17414a8682aa9f24173d9325f28e68b1b5d782382493af015dadf1c12caae8c
+                   narSha512 17b9c273750cffd60371984e1b5e6cced8615d359a3d28422f5636c957501ebe09271da5a0fffe8c607ab88681c9f07ad9c62525570fce68d96aa6d3fcec4964
+Reference 1        manifest dist.manifest.json
+                   SHA-256 726ae654c6e67eed454708d2d996e85bfbdddfcb06945b472ad872c8426c124b (identifies these exact bytes)
+                   origin  unauthenticated claim: no signature was verified
+                   claims  a directory: 4 entries, 13 bytes
+Policy             integrity: requires integrity; digest algorithms accepted: blake3, sha256, sha512
+
+Integrity          FAILED          evidence contradicts a claim
+Authenticity       NOT EVALUATED   no signature supplied
+Provenance         NOT EVALUATED   no provenance supplied
+Reproducibility    NOT EVALUATED   no rebuild performed
+Software security  NOT ASSESSED    out of scope for TrustForge
+
+Checks
+  integrity.digest  FAILED       reference 1: narBlake3, narSha256, narSha512 differ
+      expected narBlake3 f531b30b36b782b6efdaa68712c929007f067bbc9ce1a25b8c40b7dd224be618
+      actual   narBlake3 09b7831ff7f42ea72b865bc59f02618d76d8b673d1f74d2c89d8b93e541105ca
+      expected narSha256 bc0d87bc8cb1049b9354e40642ee10fef55c8f43a72b23035ce8b9f4bac8d986
+      actual   narSha256 a17414a8682aa9f24173d9325f28e68b1b5d782382493af015dadf1c12caae8c
+      expected narSha512 21a9ec9fecc4d7c9affee3bffa828f68871603bfe85ae03cea6404853d5cde2e8ea60e4ed30ca964f4bbfc10db372244354f02aea7332592ef280303f7e1762e
+      actual   narSha512 17b9c273750cffd60371984e1b5e6cced8615d359a3d28422f5636c957501ebe09271da5a0fffe8c607ab88681c9f07ad9c62525570fce68d96aa6d3fcec4964
+  integrity.size    PASSED       reference 1: 13 bytes
+  integrity.tree    FAILED       reference 1: 4 differences in the listing
+      "README": content differs (blake3, sha256, sha512)
+      "app": points to "README", expected "bin/app"
+      "bin/app": owner-execute bit not set, expected set
+      "extra": unexpected file
+
+Possible causes (none of them is established; a mismatch is not a finding of malice)
+  - the artifact was modified, corrupted or truncated after the reference was made
+  - the reference describes a different artifact, or another version of it
+  - files in the directory were added, removed or changed, for example by a tool that writes into it
+
+Limitations
+  - integrity: failed: evidence contradicts a claim
+  - authenticity: not evaluated: no signature supplied
+  - provenance: not evaluated: no provenance supplied
+  - reproducibility: not evaluated: no rebuild performed
+  - software security: not assessed: TrustForge never assesses whether software is safe
+  - a manifest without a verified signature is only a claim: whoever can replace the artifact may be able to replace the manifest too
+
+Overall: MISMATCH (evidence contradicts a claim; reference 1: unauthenticated claim (no signature was verified))
