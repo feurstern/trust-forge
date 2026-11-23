@@ -2,8 +2,17 @@
 
 ## Current state
 
-- **TrustForge does not verify anything yet.** `trustforge inspect` describes an artifact and computes its digests, and `trustforge manifest` writes and checks manifests. Nothing compares an artifact with a manifest or a reference yet (Milestone 3), so TrustForge establishes which bytes were read, not that they are genuine. See the [roadmap](roadmap.md).
-- **A manifest is a claim.** Validation checks the document only: it does not read the artifact, and an unsigned manifest does not show who wrote it. Signed manifests are verified from Milestone 5.
+- **TrustForge establishes integrity only.** `trustforge verify` compares an artifact with a manifest or with digests given directly, and `trustforge compare` compares two artifacts. Authenticity (signatures), provenance and reproducibility (rebuilds) are always reported as not evaluated; they arrive in Milestones 4 and 5 (see the [roadmap](roadmap.md)). Under the default policy, which requires all four, a matching artifact is therefore PARTIALLY VERIFIED, with exit code 3. Use `--require integrity` to require integrity alone.
+- **A manifest is a claim.** Validation checks the document only: it does not read the artifact. A manifest without a verified signature does not show who wrote it, and matching it establishes integrity relative to that claim only: whoever can replace the artifact may be able to replace the manifest too. Pin its digest (`--manifest-digest`) when you obtained the digest through a channel you trust.
+- **Signed manifests are not verified yet.** A DSSE envelope or a Sigstore bundle given as a manifest is reported as unsupported, and its contents are not used. Signature verification arrives in Milestone 5.
+- **Unsupported before invalid.** A manifest is read until the first thing this version cannot evaluate, such as another predicate version, or a subject whose digests all use unknown algorithms. Reading stops there, so a manifest that is also invalid further on is reported as unsupported (exit code 3) rather than invalid (exit code 2). Both are failures.
+- **Comparisons rest on digests.** `compare` reports MATCH from equal sizes and equal SHA-256, SHA-512 and BLAKE3 digests; no byte-by-byte pass is made. Where two artifacts differ, it reports which digests, sizes and directory entries differ, not which bytes: byte-range diagnostics arrive with rebuilds (Milestone 4).
+- **Accepted algorithms.** Comparisons accept SHA-256, SHA-512 and BLAKE3. Narrowing that set is possible through the library only, not on the command line.
+- **Reports:**
+  - names and paths are stored in display form, with characters unsafe for a terminal escaped as `\u{…}`; two different names can have the same display form, because `\` is not escaped;
+  - a report keeps at most 1,000 directory differences (and about 1 MiB of them) and 100 manifest warnings; the rest are counted, not listed;
+  - `trustforge report` refuses saved reports whose recorded results do not follow from their evidence, but a report forged consistently throughout reads like a genuine one, because reports are unsigned;
+  - the report format is version 0 and unstable: a report written by another version may be refused.
 - **Manifest size.** Manifests are limited to 4 MiB by default, which a directory manifest reaches at about 10,000–20,000 files. The limit can be raised with `--max-manifest-size`, and every reader then needs the same limit.
 - **Manifest coverage in v0:** only the Rust/Cargo build type is interpreted; other build types are kept but not checked. Directories without regular files cannot be described. Feature names in `dep:` and `package/feature` form are not accepted. A build image's package URL is checked only for its `pkg:docker/` prefix and SHA-256 digest.
 - **Parsing memory.** Validating a manifest at the 4 MiB limit (about 15,000 files) allocates about 55 MB at its peak.
