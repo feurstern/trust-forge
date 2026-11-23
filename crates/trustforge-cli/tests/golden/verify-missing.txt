@@ -1,0 +1,27 @@
+Artifact           missing
+                   error: missing: No such file or directory (os error 2)
+Reference 1        manifest app.manifest.json
+                   SHA-256 09358dae9db4a7d2b03b96b6a78269cf80d265950aaa31d639c2ad20e8281fa7 (identifies these exact bytes)
+                   origin  unauthenticated claim: no signature was verified
+                   claims  a file, 13 bytes
+Policy             integrity: requires integrity; digest algorithms accepted: blake3, sha256, sha512
+
+Integrity          ERROR           a check could not complete
+Authenticity       NOT EVALUATED   no signature supplied
+Provenance         NOT EVALUATED   no provenance supplied
+Reproducibility    NOT EVALUATED   no rebuild performed
+Software security  NOT ASSESSED    out of scope for TrustForge
+
+Checks
+  integrity.digest  ERROR        reference 1: the artifact could not be inspected
+  integrity.size    SKIPPED      reference 1: not compared: the artifact could not be inspected
+
+Limitations
+  - integrity: error: a check could not complete
+  - authenticity: not evaluated: no signature supplied
+  - provenance: not evaluated: no provenance supplied
+  - reproducibility: not evaluated: no rebuild performed
+  - software security: not assessed: TrustForge never assesses whether software is safe
+  - a manifest without a verified signature is only a claim: whoever can replace the artifact may be able to replace the manifest too
+
+Overall: VERIFICATION FAILED (a check could not complete, so nothing counts as verified; reference 1: unauthenticated claim (no signature was verified))
