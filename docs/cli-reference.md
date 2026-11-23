@@ -1,6 +1,6 @@
 # CLI Reference
 
-> **Status:** pre-alpha. The commands are `inspect`, `manifest create` and `manifest validate`. None of them verifies an artifact. Output formats are version 0 and may change in any release; every change is listed in the [CHANGELOG](../CHANGELOG.md).
+> **Status:** pre-alpha. The commands are `inspect`, `manifest create`, `manifest validate`, `verify`, `compare` and `report`. `verify` establishes **integrity** only: authenticity, provenance and reproducibility are always reported as not evaluated in this version. Output formats are version 0 and may change in any release; every change is listed in the [CHANGELOG](../CHANGELOG.md).
 
 ## `trustforge inspect`
 
@@ -10,7 +10,7 @@ trustforge inspect [OPTIONS] <PATH>
 
 Describes an artifact and computes its digests: its kind, size, format and SHA-256, SHA-512 and BLAKE3 digests. A directory's tree digests are computed over its [NAR serialization](manifest-spec.md#tree-digests).
 
-**`inspect` verifies nothing.** It reports which bytes it read. It does not compare them with anything, and it says nothing about who produced them or whether they are safe. Verification against references arrives in Milestone 3 (see the [roadmap](roadmap.md)).
+**`inspect` verifies nothing.** It reports which bytes it read. It does not compare them with anything, and it says nothing about who produced them or whether they are safe. To compare an artifact with a reference, use [`verify`](#trustforge-verify).
 
 ### Arguments and options
 
@@ -251,4 +251,115 @@ With `--format json`, standard output is exactly one document whenever the file 
 |---|---|
 | 0 | Valid (possibly with warnings). |
 | 2 | Invalid, unsupported (another version or statement type), too large, or rejected in strict mode. |
+| 4 | The file could not be read. |
+
+## `trustforge verify`
+
+```text
+trustforge verify [OPTIONS] <PATH>
+```
+
+Compares an artifact with references and reports each guarantee separately, as defined in [verification-semantics.md](verification-semantics.md). The references are a manifest (`--manifest`), digests given directly (`--expect`), or both; at least one is required, and every one must match.
+
+**This version establishes integrity only**: that the artifact's bytes are the ones the references describe. Authenticity, provenance and reproducibility are always NOT EVALUATED, so under the default policy, which requires all four, a match is PARTIALLY VERIFIED (exit code 3). Use `--require integrity` to require integrity alone.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `<PATH>` | (required) | The file or directory to verify, or `-` to read standard input. |
+| `--manifest <FILE>` | none | A [manifest](manifest-spec.md) describing the artifact, or `-` for standard input (not together with a `-` artifact). Without a verified signature it is an *unauthenticated claim*, and the report says so. A signed envelope (DSSE, or a Sigstore bundle) is reported as unsupported: this version cannot verify signatures. |
+| `--manifest-digest sha256:<HEX>` | none | The manifest's SHA-256, obtained through a channel you trust. The manifest is used only if the SHA-256 of its exact bytes is this digest; otherwise it is not even parsed, and the result is MISMATCH. Its origin becomes *user-pinned*. |
+| `--expect <ALGORITHM:HEX>` | none | An expected digest: `sha256`, `sha512` or `blake3` for a file or stream, `narSha256`, `narSha512` or `narBlake3` for a directory. Repeat the option or separate values with commas; all of them form one *user-supplied* reference, and every one must match. Hexadecimal digits may be in either case. `md5` and `sha1` are never accepted. |
+| `--require <POLICY>` | `full` | What must be verified: `full` (all four dimensions), or a comma-separated list of `integrity`, `authenticity`, `provenance` and `reproducibility`. |
+| `--format <text\|json>` | `text` | Output format. JSON is the [report format](verification-semantics.md#json-report-reportv0). |
+| `--timestamp` | off | Record the current time in the report (`generatedAt`). Reports leave it out by default, so that the same inputs give the same report. |
+| `--max-bytes`, `--max-entries`, `--max-depth` | | As for [`inspect`](#arguments-and-options). |
+| `--max-manifest-size <BYTES>` | 4194304 (4 MiB) | Refuse a larger manifest without parsing it. |
+
+The manifest is reference 1 and the `--expect` digests reference 2 when both are given. Each reference is shown with where it came from:
+
+```text
+$ trustforge verify app --manifest app.manifest.json --require integrity
+Artifact           app: file, 13 bytes
+                   blake3 623a5460d841b6d1c13d080e85500e0043fd4ba4a8ba9c1aa9b4f6e0d212276c
+                   sha256 853ff93762a06ddbf722c4ebe9ddd66d8f63ddaea97f521c3ecc20da7c976020
+                   sha512 f65f341b…
+Reference 1        manifest app.manifest.json
+                   SHA-256 09358dae9db4a7d2b03b96b6a78269cf80d265950aaa31d639c2ad20e8281fa7 (identifies these exact bytes)
+                   origin  unauthenticated claim: no signature was verified
+                   claims  a file, 13 bytes
+Policy             integrity: requires integrity; digest algorithms accepted: blake3, sha256, sha512
+
+Integrity          VERIFIED        the artifact matches the reference
+Authenticity       NOT EVALUATED   no signature supplied
+Provenance         NOT EVALUATED   no provenance supplied
+Reproducibility    NOT EVALUATED   no rebuild performed
+Software security  NOT ASSESSED    out of scope for TrustForge
+
+Checks
+  integrity.digest  PASSED       reference 1: blake3, sha256, sha512 match
+  integrity.size    PASSED       reference 1: 13 bytes
+
+Limitations
+  - authenticity: not evaluated: no signature supplied
+  - provenance: not evaluated: no provenance supplied
+  - reproducibility: not evaluated: no rebuild performed
+  - software security: not assessed: TrustForge never assesses whether software is safe
+  - a manifest without a verified signature is only a claim: whoever can replace the artifact may be able to replace the manifest too
+
+Overall: VERIFIED (policy "integrity" is satisfied; reference 1: unauthenticated claim (no signature was verified))
+```
+
+A mismatch shows the expected and actual digests, or for a directory each differing entry (up to 20; the JSON report keeps up to 1,000), and lists *possible* causes without claiming one. The artifact's name is not compared with the manifest's subject name. Values taken from a manifest or the artifact (a recipe's build type, an unsupported predicate type, a warning's location, a path or a symlink target) appear only in double quotes, with `"` and `\` escaped, never inside TrustForge's own sentences.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | VERIFIED under the policy. |
+| 1 | MISMATCH: some evidence contradicts a reference, including a manifest that does not match its pinned digest. |
+| 2 | Usage error (no reference, a malformed or repeated `--expect`, content and tree digests mixed, an unknown dimension), or a manifest that is not valid JSON, breaks a rule of the specification, or exceeds the size limit. The error is printed on standard error, and nothing on standard output. |
+| 3 | The policy is not satisfied: PARTIALLY VERIFIED or UNVERIFIED. This includes references this version cannot evaluate, such as another manifest version or a signed envelope. |
+| 4 | VERIFICATION FAILED: the artifact could not be read (the report says why), or the manifest file could not be read (reported on standard error only). |
+| 101 | Internal error (a panic). Please report it. |
+
+Standard output carries only the report; with `--format json`, exactly one document, written whatever the result. Standard error stays empty unless the command cannot produce a report.
+
+## `trustforge compare`
+
+```text
+trustforge compare [OPTIONS] <ORIGINAL> <CANDIDATE>
+```
+
+Whether two artifacts hold the same bytes. Both are inspected with SHA-256, SHA-512 and BLAKE3, under every rule of [`inspect`](#what-is-inspected). Either side may be `-` for standard input, but not both.
+
+The [outcome](verification-semantics.md#comparison-outcomes) is MATCH only if both are the same kind of artifact (a file and a stream count as the same), with the same size and the same three digests, and for directories the same entries. No byte-by-byte pass is made; equal digests under three independent algorithms identify equal bytes. A match shows that both hold the same bytes, not that either can be trusted.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--format <text\|json>` | `text` | Output format. JSON has `outcome`, `original` and `candidate` (as in a report's `artifact`), and `differences` (`kind`, `size`, `digests` and, for directories, `tree`), which is `null` unless both sides were read. |
+| `--max-bytes`, `--max-entries`, `--max-depth` | | As for [`inspect`](#arguments-and-options), for each side. |
+
+| Exit code | Meaning |
+|---|---|
+| 0 | MATCH |
+| 1 | DIFFERENT: both sides were read completely, and they differ. |
+| 2 | Usage error. |
+| 4 | INCOMPLETE (a side is missing, a limit was exceeded, or this platform cannot inspect a side) or FAILED (any other error). |
+
+## `trustforge report`
+
+```text
+trustforge report [OPTIONS] <FILE>
+```
+
+Shows a report saved with `verify --format json` again (`FILE` may be `-`). **Nothing is verified again.** The output starts with *"Loaded from file: not re-verified; reports are unsigned."*, every dimension line is marked "recorded", and the last line reads "Overall (as recorded, not re-verified): …".
+
+A saved report is never evidence: anyone can write one. It is read strictly, every status in it is recomputed from its own evidence, every piece of evidence must agree with the artifact and references it refers to, and every result a reference's claims call for must be present; a report whose recorded results do not follow is refused. All explanations are regenerated rather than taken from the file. A report forged consistently throughout still reads like a genuine one: to know, verify again. The details are in [verification-semantics.md](verification-semantics.md#saved-reports).
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--max-report-size <BYTES>` | 4194304 (4 MiB) | Refuse a larger report without parsing it. Every report TrustForge writes fits the default. |
+
+| Exit code | Meaning |
+|---|---|
+| 0 | The report was shown, whatever it says. |
+| 2 | Not a valid, consistent report of this version. The reason and its location (a JSON Pointer) are printed on standard error. |
 | 4 | The file could not be read. |

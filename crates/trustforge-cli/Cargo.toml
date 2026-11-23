@@ -1,6 +1,6 @@
 [package]
 name = "trustforge-cli"
-description = "Command-line interface for TrustForge. Pre-alpha: inspects and hashes artifacts; verifies nothing yet."
+description = "Command-line interface for TrustForge. Pre-alpha: inspects, describes and compares artifacts, and verifies their integrity; signatures, provenance and rebuilds follow in later milestones."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

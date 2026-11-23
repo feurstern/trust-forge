@@ -26,7 +26,7 @@ use crate::digest::{
 use crate::format::{FileFormat, HEAD_LEN, detect_format};
 use crate::name::{EscapedBytes, NameError, RelPath};
 
-mod time;
+pub(crate) mod time;
 
 #[cfg(not(unix))]
 mod portable;

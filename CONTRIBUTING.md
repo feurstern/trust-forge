@@ -19,9 +19,10 @@ Development proceeds in milestones (see [docs/roadmap.md](docs/roadmap.md)). Eac
    cargo deny check        # needs cargo-deny: https://github.com/EmbarkStudios/cargo-deny
    ```
 
-3. Performance-sensitive changes should include benchmark results: `cargo bench -p trustforge-core`. Never claim a performance change without a measurement.
-4. Parser changes should be fuzzed: `cargo +nightly fuzz run manifest -- -dict=fuzz/manifest.dict` (needs `cargo install cargo-fuzz`). CI fuzzes every target weekly.
+3. Performance-sensitive changes should include benchmark results: `cargo bench -p trustforge-core` (the benches are `inspect`, `manifest` and `compare`). Never claim a performance change without a measurement.
+4. Parser changes should be fuzzed: `cargo +nightly fuzz run manifest -- -dict=fuzz/manifest.dict`, or `report` with `fuzz/report.dict` for the report reader (needs `cargo install cargo-fuzz`). CI fuzzes every target weekly.
 5. After changing a manifest fixture, regenerate its reference serializations with `node scripts/json-reference.mjs`, and after changing the JSON Schema or the fixtures, run `sh scripts/check-schema.sh` (it downloads ajv through npx).
+6. The output of `verify`, `compare` and `report` is pinned by golden files in `crates/trustforge-cli/tests/golden/`. After an intended change of output, regenerate them with `TRUSTFORGE_UPDATE_GOLDEN=1 cargo test -p trustforge-cli --test verify_cli` and review the difference. After an intended change of the report format, regenerate the saved-report fixtures with `cargo build -p trustforge-cli && sh scripts/report-fixtures.sh`, and check that the forged copies in `fixtures/reports/v0/invalid/` still forge what their names say.
 
 The minimum supported Rust version (MSRV) is `rust-version` in `Cargo.toml` (currently 1.88), and CI checks it. Dependabot does not update `rust-toolchain.toml`, so toolchain upgrades are done by hand in their own pull request.
 

@@ -1,0 +1,102 @@
+{
+  "_type": "https://feurstern.github.io/trust-forge/report/v0",
+  "artifact": {
+    "error": {
+      "kind": "not-found",
+      "message": "missing: No such file or directory (os error 2)"
+    },
+    "name": "missing"
+  },
+  "checks": [
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "type": "not-inspected",
+        "unsupported": false
+      },
+      "id": "integrity.digest",
+      "reference": 0,
+      "status": "ERROR",
+      "summary": "the artifact could not be inspected"
+    },
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "reason": "not-inspected",
+        "type": "skipped"
+      },
+      "id": "integrity.size",
+      "reference": 0,
+      "status": "SKIPPED",
+      "summary": "not compared: the artifact could not be inspected"
+    }
+  ],
+  "dimensions": {
+    "authenticity": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no signature supplied"
+    },
+    "integrity": {
+      "reason": null,
+      "status": "ERROR",
+      "summary": "a check could not complete"
+    },
+    "provenance": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no provenance supplied"
+    },
+    "reproducibility": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no rebuild performed"
+    }
+  },
+  "limitations": [
+    "integrity: error: a check could not complete",
+    "authenticity: not evaluated: no signature supplied",
+    "provenance: not evaluated: no provenance supplied",
+    "reproducibility: not evaluated: no rebuild performed",
+    "software security: not assessed: TrustForge never assesses whether software is safe",
+    "a manifest without a verified signature is only a claim: whoever can replace the artifact may be able to replace the manifest too"
+  ],
+  "overall": {
+    "possibleCauses": [],
+    "status": "VERIFICATION_FAILED",
+    "summary": "a check could not complete, so nothing counts as verified"
+  },
+  "policy": {
+    "acceptedAlgorithms": [
+      "blake3",
+      "sha256",
+      "sha512"
+    ],
+    "name": "integrity",
+    "require": [
+      "integrity"
+    ]
+  },
+  "references": [
+    {
+      "claim": {
+        "kind": "file",
+        "size": 13
+      },
+      "origin": "unauthenticated-claim",
+      "recipe": null,
+      "source": {
+        "path": "app.manifest.json",
+        "pinned": null,
+        "sha256": "09358dae9db4a7d2b03b96b6a78269cf80d265950aaa31d639c2ad20e8281fa7",
+        "type": "manifest"
+      },
+      "warnings": [],
+      "warningsOmitted": 0
+    }
+  ],
+  "tool": {
+    "name": "trustforge",
+    "version": "0.0.0"
+  }
+}

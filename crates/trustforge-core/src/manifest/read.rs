@@ -15,11 +15,11 @@ use std::collections::{BTreeMap, HashSet};
 use super::{
     ArtifactClaim, BuildDefinition, CARGO_BUILD_TYPE_V0, EntryClaimKind, Manifest, ManifestError,
     ManifestWarning, PREDICATE_TYPE_V0, Problem, STATEMENT_TYPE, Subject, TreeEntryClaim,
-    WarningKind, cargo, invalid,
+    Unsupported, WarningKind, cargo, invalid,
 };
 use crate::digest::{Digest, DigestAlgorithm, DigestError, DigestSet};
 use crate::json::{Pointer, StrictValue};
-use crate::name::{EscapedBytes, RelPath, validate_symlink_target};
+use crate::name::{RelPath, shortened, validate_symlink_target};
 
 /// Warnings collected while reading.
 #[derive(Default)]
@@ -159,12 +159,12 @@ pub(super) fn statement(value: &StrictValue, ctx: &mut Context) -> Result<Manife
     let (statement_type, at) = fields.required("_type")?;
     let statement_type = string(statement_type, &at)?;
     if statement_type != STATEMENT_TYPE {
-        return Err(unsupported(&at, "statement type", statement_type));
+        return Err(unsupported(&at, Unsupported::StatementType, statement_type));
     }
     let (predicate_type, at) = fields.required("predicateType")?;
     let predicate_type = string(predicate_type, &at)?;
     if predicate_type != PREDICATE_TYPE_V0 {
-        return Err(unsupported(&at, "predicate type", predicate_type));
+        return Err(unsupported(&at, Unsupported::PredicateType, predicate_type));
     }
 
     let (subject_value, subject_at) = fields.required("subject")?;
@@ -192,10 +192,13 @@ pub(super) fn statement(value: &StrictValue, ctx: &mut Context) -> Result<Manife
     })
 }
 
-fn unsupported(at: &Pointer, what: &str, value: &str) -> ManifestError {
+/// Values quoted from a document are cut to this many characters.
+const MAX_QUOTED_CHARS: usize = 256;
+
+fn unsupported(at: &Pointer, what: fn(String) -> Unsupported, value: &str) -> ManifestError {
     ManifestError::Unsupported {
         pointer: at.clone(),
-        what: format!("{what} \"{}\"", EscapedBytes(value.as_bytes())),
+        what: what(shortened(value, MAX_QUOTED_CHARS)),
     }
 }
 
@@ -320,7 +323,7 @@ fn digest_set(
         // The algorithms may be valid ones this version does not know.
         DigestError::EmptyDigestSet => ManifestError::Unsupported {
             pointer: at.clone(),
-            what: "a digest set without any algorithm this version accepts".to_owned(),
+            what: Unsupported::NoAcceptedAlgorithm,
         },
         other => invalid(at, Problem::Digest(other)),
     })
@@ -385,12 +388,6 @@ fn artifact(
     }
 }
 
-/// The order of entries in a tree: component by component, each compared by
-/// bytes, a directory before its contents. So `a` < `a/b` < `a-b`.
-fn tree_order(a: &RelPath, b: &RelPath) -> Ordering {
-    a.as_str().split('/').cmp(b.as_str().split('/'))
-}
-
 fn tree_entries(
     value: &StrictValue,
     at: &Pointer,
@@ -411,7 +408,7 @@ fn tree_entries(
         let (path, path_at) = fields.required("path")?;
         let path = rel_path(path, &path_at)?;
         if let Some(previous) = entries.last()
-            && tree_order(&previous.path, &path) != Ordering::Less
+            && previous.path.tree_cmp(&path) != Ordering::Less
         {
             return Err(invalid(
                 &path_at,
@@ -574,15 +571,5 @@ mod tests {
         assert!(folds_to("\u{212a}ind", "kind"), "Kelvin sign folds to k");
         assert!(!folds_to("subjects", "subject"));
         assert!(!folds_to("subjeçt", "subject"));
-    }
-
-    #[test]
-    fn tree_order_is_component_wise() {
-        let p = |s: &str| RelPath::parse(s).unwrap();
-        assert_eq!(tree_order(&p("a"), &p("a/b")), Ordering::Less);
-        assert_eq!(tree_order(&p("a/b"), &p("a-b")), Ordering::Less);
-        assert_eq!(tree_order(&p("B"), &p("a")), Ordering::Less);
-        assert_eq!(tree_order(&p("a/z"), &p("aa")), Ordering::Less);
-        assert_eq!(tree_order(&p("a"), &p("a")), Ordering::Equal);
     }
 }

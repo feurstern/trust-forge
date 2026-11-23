@@ -28,7 +28,7 @@ Architecture, threat model, draft manifest specification and verification semant
 - Security regression tests and benchmarks.
 - [Getting started](getting-started.md) (installation and quick start) and the [CLI reference](cli-reference.md) for `inspect`.
 
-### M2: Manifest (current)
+### M2: Manifest (done)
 
 - A strict JSON parsing layer (`trustforge_core::json`).
 - The typed in-toto Statement and TrustForge predicate (v0), with validation rules.
@@ -37,13 +37,13 @@ Architecture, threat model, draft manifest specification and verification semant
 - Golden fixtures (`fixtures/manifests/v0`), a non-normative [JSON Schema](schemas/manifest-v0.schema.json) checked against them with ajv, and coverage-guided fuzz targets for the manifest parser and the M1 format detector, run weekly in CI.
 - The manifest size limit for large directory artifacts: decided to stay at 4 MiB by default and be configurable (see [manifest-spec.md](manifest-spec.md#parsing-and-validation)); a more compact form for very large trees is an open item before v1.
 
-### M3: Verification engine
+### M3: Verification engine (current)
 
-- The `Check` trait, and integrity checks for digest, size and tree.
-- Policies, dimension and overall status computation.
-- JSON report (v0) and a sanitized terminal renderer.
-- `trustforge verify`, `compare` and `report`, with stable exit codes and snapshot tests.
-- The Sigstore library spike starts in parallel.
+- The `Check` trait, and integrity checks for digest, size, tree and pinned manifests (`trustforge_core::verify`). Built-in checks always run; a result's status is computed from its evidence.
+- Policies (`full` by default, or `--require` a list of dimensions), and dimension and overall status computation, property-tested against the rules of [verification-semantics.md](verification-semantics.md).
+- The JSON report (`report/v0`) and its strict reader, which recomputes every status and refuses inconsistent reports; a sanitized terminal renderer.
+- `trustforge verify`, `compare` and `report`, with stable exit codes; their output is pinned by golden files, and saved reports by fixtures (`fixtures/reports/v0`). A fuzz target for the report reader joins the weekly job.
+- The Sigstore library spike started as a desk evaluation, [research/sigstore-libraries.md](research/sigstore-libraries.md); the hands-on spike and the decision belong to M5.
 
 ### M4: Rust reproducible build MVP
 

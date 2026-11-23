@@ -1,6 +1,6 @@
 # TrustForge Manifest Specification — v0
 
-> **Status: implemented (Milestone 2), unstable.** `trustforge manifest create` writes manifests and `trustforge manifest validate` checks them against every rule below. Version `v0` may still change incompatibly in any release, and every such change is listed in the [CHANGELOG](../CHANGELOG.md). Version `v1` will be frozen before the first release candidate.
+> **Status: implemented (Milestone 2), unstable.** `trustforge manifest create` writes manifests and `trustforge manifest validate` checks them against every rule below. `trustforge verify --manifest` compares artifacts with them (Milestone 3). Version `v0` may still change incompatibly in any release, and every such change is listed in the [CHANGELOG](../CHANGELOG.md). Version `v1` will be frozen before the first release candidate.
 
 The key words MUST, MUST NOT, SHOULD and MAY are to be interpreted as described in RFC 2119.
 
@@ -115,7 +115,7 @@ A manifest is an [in-toto Statement v1](https://github.com/in-toto/attestation/b
 
 `buildDefinition` has the shape of the SLSA Provenance v1 [`BuildDefinition`](https://slsa.dev/spec/v1.2/provenance): `buildType`, `externalParameters`, `internalParameters` and `resolvedDependencies`. Here it describes a **claimed recipe**, not an attested build.
 
-If `buildDefinition` is absent, the manifest can still be used to verify integrity, and reproducibility is reported as `NOT_PROVIDED`. Only the build type `https://feurstern.github.io/trust-forge/build/cargo/v0` is defined in v0. Any other build type is accepted with a warning and kept as written, but not interpreted: the manifest can still be used for integrity, and the rebuild is `UNSUPPORTED`. `trustforge manifest create` refuses to embed a recipe of any other build type, so a misspelled build type cannot slip into a new manifest unchecked.
+If `buildDefinition` is absent, the manifest can still be used to verify integrity, and reproducibility is reported as not evaluated because no recipe was provided. Only the build type `https://feurstern.github.io/trust-forge/build/cargo/v0` is defined in v0. Any other build type is accepted with a warning and kept as written, but not interpreted: the manifest can still be used for integrity, and the rebuild is `UNSUPPORTED`. Until rebuilds exist (Milestone 4), every claimed recipe, `cargo/v0` included, gets a `reproducibility.rebuild` result of `UNSUPPORTED`. `trustforge manifest create` refuses to embed a recipe of any other build type, so a misspelled build type cannot slip into a new manifest unchecked.
 
 ## Build type `https://feurstern.github.io/trust-forge/build/cargo/v0`
 
@@ -184,7 +184,8 @@ A digest set is a JSON object mapping an algorithm name to a lowercase hexadecim
 - Keys TrustForge does not accept are ignored and **reported**. `md5` and `sha1` are flagged as insecure and are never accepted.
 - A key that differs from an accepted name only in letter case (such as `SHA256`) is an error: another tool might read it as that algorithm.
 - An empty digest set is invalid. A digest set whose keys are all ignored cannot be evaluated, so the result is `UNSUPPORTED`.
-- **Matching rule:** every accepted algorithm present MUST match. The in-toto framework allows a match on *any* accepted algorithm. TrustForge is deliberately stricter, so anything TrustForge accepts, an in-toto verifier also accepts.
+- **Matching rule:** every accepted algorithm present MUST match. The in-toto framework allows a match on *any* accepted algorithm. TrustForge is deliberately stricter, so anything TrustForge accepts, an in-toto verifier also accepts. Which algorithms are accepted is decided by the verifier's policy, never by the document.
+- A subject's `name` is not compared with the name of the artifact being verified: subjects match by digest, as in in-toto, so a renamed download still verifies.
 
 ### Tree digests
 
@@ -274,7 +275,7 @@ Signatures (DSSE) cover the **exact bytes** of a document, so verification never
 
 - A manifest is identified by the **SHA-256 of its exact bytes**, which every report shows.
 - TrustForge reads a manifest **once**. Every later step, including the rebuild plan and the user's approval, is bound to that digest.
-- A user who obtained a manifest's digest through a trusted channel can pin it with `--manifest-digest sha256:…`. The reference origin then becomes `user-pinned`.
+- A user who obtained a manifest's digest through a trusted channel can pin it with `trustforge verify --manifest-digest sha256:…`. The reference origin then becomes `user-pinned`. A manifest whose digest differs is never parsed and its claims are not used; the result is a mismatch (implemented in Milestone 3).
 - Authenticity of a manifest requires a verified signature under the user's trust policy (Milestone 5).
 
 ## Versioning and compatibility

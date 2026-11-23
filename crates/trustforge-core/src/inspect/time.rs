@@ -17,6 +17,60 @@ pub(crate) fn rfc3339_utc(secs: i64) -> Option<String> {
     ))
 }
 
+/// Parses exactly the form [`rfc3339_utc`] writes, `YYYY-MM-DDThh:mm:ssZ`,
+/// into seconds since the Unix epoch. Anything else, including an impossible
+/// date such as February 30, is `None`.
+pub(crate) fn parse_rfc3339_utc(text: &str) -> Option<i64> {
+    let bytes = text.as_bytes();
+    if bytes.len() != 20 {
+        return None;
+    }
+    let number = |range: std::ops::Range<usize>| -> Option<i64> {
+        let digits = bytes.get(range)?;
+        digits.iter().try_fold(0i64, |n, &b| {
+            b.is_ascii_digit().then(|| n * 10 + i64::from(b - b'0'))
+        })
+    };
+    let separators = [
+        (4, b'-'),
+        (7, b'-'),
+        (10, b'T'),
+        (13, b':'),
+        (16, b':'),
+        (19, b'Z'),
+    ];
+    if separators.iter().any(|&(i, c)| bytes.get(i) != Some(&c)) {
+        return None;
+    }
+    let (year, month, day) = (number(0..4)?, number(5..7)?, number(8..10)?);
+    let (hour, minute, second) = (number(11..13)?, number(14..16)?, number(17..19)?);
+    if !(1..=12).contains(&month)
+        || !(1..=31).contains(&day)
+        || hour > 23
+        || minute > 59
+        || second > 59
+    {
+        return None;
+    }
+    let secs = days_from_civil(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second;
+    // An impossible date normalizes to another day; only an exact round
+    // trip is accepted.
+    (rfc3339_utc(secs).as_deref() == Some(text)).then_some(secs)
+}
+
+/// The day number, counted from 1970-01-01, of a proleptic Gregorian
+/// calendar date: the inverse of [`civil_from_days`] (Howard Hinnant's
+/// `days_from_civil`).
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = year.div_euclid(400);
+    let yoe = year - era * 400; // year of era, 0..=399
+    let mp = (month + 9) % 12; // month from March, 0..=11
+    let doy = (153 * mp + 2) / 5 + day - 1; // day of year from March 1st
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy; // day of era
+    era * 146_097 + doe - 719_468
+}
+
 /// The proleptic Gregorian calendar date of a day number counted from
 /// 1970-01-01, after Howard Hinnant's `civil_from_days` algorithm. Valid for
 /// every `i64` day number that `rfc3339_utc` can produce.
@@ -52,6 +106,40 @@ mod tests {
         ];
         for (secs, expected) in cases {
             assert_eq!(rfc3339_utc(secs).as_deref(), Some(expected), "{secs}");
+        }
+    }
+
+    #[test]
+    fn written_instants_parse_back() {
+        for secs in [
+            0,
+            -1,
+            951_782_400,
+            1_730_678_400,
+            4_107_542_400,
+            -62_167_219_200,
+            253_402_300_799,
+        ] {
+            let text = rfc3339_utc(secs).unwrap();
+            assert_eq!(parse_rfc3339_utc(&text), Some(secs), "{text}");
+        }
+    }
+
+    #[test]
+    fn other_forms_and_impossible_dates_do_not_parse() {
+        for text in [
+            "2026-02-30T00:00:00Z",
+            "2026-13-01T00:00:00Z",
+            "2026-11-23T24:00:00Z",
+            "2026-11-23T12:00:60Z",
+            "2026-11-23T12:00:00+00:00",
+            "2026-11-23 12:00:00Z",
+            "2026-11-23T12:00:00z",
+            "+026-11-23T12:00:00Z",
+            "2026-11-23T12:00:00.5Z",
+            "",
+        ] {
+            assert_eq!(parse_rfc3339_utc(text), None, "{text}");
         }
     }
 

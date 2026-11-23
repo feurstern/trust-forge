@@ -1,0 +1,111 @@
+{
+  "_type": "https://feurstern.github.io/trust-forge/report/v0",
+  "artifact": {
+    "digest": {
+      "sha256": "853ff93762a06ddbf722c4ebe9ddd66d8f63ddaea97f521c3ecc20da7c976020"
+    },
+    "entries": null,
+    "kind": "file",
+    "name": "app",
+    "size": 13
+  },
+  "checks": [
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "actual": {
+          "sha256": "09358dae9db4a7d2b03b96b6a78269cf80d265950aaa31d639c2ad20e8281fa7"
+        },
+        "pinned": {
+          "sha256": "09358dae9db4a7d2b03b96b6a78269cf80d265950aaa31d639c2ad20e8281fa7"
+        },
+        "type": "pin"
+      },
+      "id": "integrity.manifest",
+      "reference": 0,
+      "status": "PASSED",
+      "summary": "the manifest's digest is sha256:09358dae9db4a7d2b03b96b6a78269cf80d265950aaa31d639c2ad20e8281fa7, not the pinned sha256:0000000000000000000000000000000000000000000000000000000000000000; its claims were not used"
+    },
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "reason": "pin-mismatch",
+        "type": "skipped"
+      },
+      "id": "integrity.digest",
+      "reference": 0,
+      "status": "SKIPPED",
+      "summary": "not compared: the manifest does not match its pinned digest"
+    }
+  ],
+  "dimensions": {
+    "authenticity": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no signature supplied"
+    },
+    "integrity": {
+      "reason": null,
+      "status": "FAILED",
+      "summary": "evidence contradicts a claim"
+    },
+    "provenance": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no provenance supplied"
+    },
+    "reproducibility": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no rebuild performed"
+    }
+  },
+  "limitations": [
+    "integrity: failed: evidence contradicts a claim",
+    "authenticity: not evaluated: no signature supplied",
+    "provenance: not evaluated: no provenance supplied",
+    "reproducibility: not evaluated: no rebuild performed",
+    "software security: not assessed: TrustForge never assesses whether software is safe"
+  ],
+  "overall": {
+    "possibleCauses": [
+      "the manifest was changed or replaced after its digest was pinned, or a wrong digest was pinned; the artifact was not compared with that manifest"
+    ],
+    "status": "MISMATCH",
+    "summary": "evidence contradicts a claim"
+  },
+  "policy": {
+    "acceptedAlgorithms": [
+      "blake3",
+      "sha256",
+      "sha512"
+    ],
+    "name": "integrity",
+    "require": [
+      "integrity"
+    ]
+  },
+  "references": [
+    {
+      "claim": {
+        "kind": "unusable"
+      },
+      "origin": "user-pinned",
+      "recipe": null,
+      "source": {
+        "path": "app.manifest.json",
+        "pinned": {
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "sha256": "09358dae9db4a7d2b03b96b6a78269cf80d265950aaa31d639c2ad20e8281fa7",
+        "type": "manifest"
+      },
+      "warnings": [],
+      "warningsOmitted": 0
+    }
+  ],
+  "tool": {
+    "name": "trustforge",
+    "version": "0.0.0"
+  }
+}

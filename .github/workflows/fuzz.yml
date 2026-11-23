@@ -26,6 +26,8 @@ jobs:
         include:
           - target: manifest
             options: -dict=fuzz/manifest.dict
+          - target: report
+            options: -dict=fuzz/report.dict
           - target: format
             options: ""
     steps:
@@ -38,10 +40,15 @@ jobs:
           cargo +"$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
       - name: Seed the corpus with the fixtures
         run: |
-          mkdir -p fuzz/corpus/manifest fuzz/corpus/format
+          mkdir -p fuzz/corpus/manifest fuzz/corpus/report fuzz/corpus/format
           for dir in valid created invalid canonical; do
             for file in fixtures/manifests/v0/$dir/*.json; do
               cp "$file" "fuzz/corpus/manifest/$dir-$(basename "$file")"
+            done
+          done
+          for dir in valid invalid; do
+            for file in fixtures/reports/v0/$dir/*.json; do
+              cp "$file" "fuzz/corpus/report/$dir-$(basename "$file")"
             done
           done
           cp fixtures/nar/*.nar fuzz/corpus/format/

@@ -4,11 +4,13 @@
 
 TrustForge is an open-source Rust library and command-line tool for checking where a compiled artifact came from. It will inspect an artifact, check its digests, evaluate signatures and build provenance when they are supplied, and rebuild it from its claimed source to see whether the result is byte-for-byte identical. It then reports exactly which of these checks were done, what they established, and what they did not.
 
-> **Status: pre-alpha (Milestone 2: manifests).**
-> TrustForge can inspect artifacts, compute their digests, and write and check
-> manifests that claim them, but it does not verify anything yet: nothing
-> compares an artifact with a manifest. Do not use it for security decisions.
-> See the [roadmap](docs/roadmap.md).
+> **Status: pre-alpha (Milestone 3: verification engine).**
+> TrustForge can inspect artifacts, write and check manifests that claim them,
+> and verify an artifact's **integrity** against a manifest or expected
+> digests. It cannot verify signatures, provenance or rebuilds yet, so it
+> cannot tell you who produced an artifact, and it reports those guarantees as
+> not evaluated. Do not rely on it for security decisions yet. See the
+> [roadmap](docs/roadmap.md).
 
 ## The problem
 
@@ -47,24 +49,29 @@ claimed source ──► rebuild in an isolated container ──► byte compari
 1. **Inspect** the artifact (file, executable, archive or directory) and compute SHA-256, SHA-512 or BLAKE3 digests in a single streaming pass.
 2. **Compare** against expected digests or a TrustForge **manifest**: an [in-toto](https://in-toto.io/) Statement describing the artifact and its claimed build.
 3. **Verify** signatures and provenance (Sigstore bundles, SLSA provenance), always under an explicit trust policy.
-4. **Rebuild** Rust/Cargo projects from the claimed source revision inside an isolated container, after you approve the exact plan, and compare the result byte for byte.
+4. **Rebuild** Rust/Cargo projects from the claimed source revision inside an isolated container, after you approve the exact plan, and compare the result with the original: the same size and the same SHA-256, SHA-512 and BLAKE3 digests.
 5. **Report** a status for each property. Missing evidence is shown as missing, never as passed.
 
 ## What TrustForge verifies today
 
-**Nothing.** What exists today is inspection and manifests:
+**Integrity only**: whether an artifact's bytes are the ones a reference describes.
 
 ```sh
 trustforge inspect target/release/myapp      # kind, size, format, SHA-256/SHA-512/BLAKE3
 trustforge inspect dist/                     # tree digests over the directory's NAR serialization
-trustforge inspect --format json - < app.tar.gz
 trustforge manifest create dist/ -o dist.manifest.json   # an in-toto Statement claiming dist/
 trustforge manifest validate dist.manifest.json          # strict check against the v0 rules
+trustforge verify dist/ --manifest dist.manifest.json    # compare the artifact with the manifest
+trustforge verify app --expect sha256:… --require integrity
+trustforge compare build-1/app build-2/app   # do two artifacts hold the same bytes?
+trustforge report saved-report.json          # show a saved report again (not re-verified)
 ```
 
 `inspect` reports which bytes an artifact contains: its size, its format (from header bytes), and its digests. For a directory, the tree digest covers every file's contents and executable bit, every symlink's target, and empty directories, and equals the NAR hash Nix computes for the same directory (`nix-hash --type sha256`). Symbolic links are recorded and never followed, and special files are never opened.
 
-A **manifest** records those digests, and optionally the recipe that builds the artifact, as an [in-toto](https://in-toto.io/) Statement ([specification](docs/manifest-spec.md)). TrustForge reads manifests strictly: duplicate keys, case-variant field names, out-of-range numbers, control characters, and recipe values that could inject command-line options are all rejected. A manifest is a claim, not evidence. Comparing an artifact with its manifest, which is where verification starts, arrives in Milestone 3. See [getting started](docs/getting-started.md).
+A **manifest** records those digests, and optionally the recipe that builds the artifact, as an [in-toto](https://in-toto.io/) Statement ([specification](docs/manifest-spec.md)). TrustForge reads manifests strictly: duplicate keys, case-variant field names, out-of-range numbers, control characters, and recipe values that could inject command-line options are all rejected. A manifest is a claim, not evidence.
+
+`verify` compares an artifact with a manifest and with digests you give it, and reports each property separately: integrity can be VERIFIED; authenticity, provenance and reproducibility are NOT EVALUATED in this version. Under the default policy, which requires all four, a match is therefore **PARTIALLY VERIFIED** (exit code 3), and the report names the policy and where every reference came from. An unsigned manifest is labelled an *unauthenticated claim*; pin its digest with `--manifest-digest` if you obtained it through a channel you trust. Reports are deterministic JSON or text with the verdict last, and `trustforge report` shows a saved one again only after checking that every recorded status follows from its evidence. See [getting started](docs/getting-started.md) and the [verification semantics](docs/verification-semantics.md).
 
 The [roadmap](docs/roadmap.md) lists when each capability is planned:
 
@@ -72,7 +79,7 @@ The [roadmap](docs/roadmap.md) lists when each capability is planned:
 |---|---|
 | Artifact inspection and SHA-256 / SHA-512 / BLAKE3 hashing | Milestone 1 (available) |
 | TrustForge manifest (v0): create, validate, canonical serialization | Milestone 2 (available) |
-| Verification engine, JSON and terminal reports, stable exit codes | Milestone 3 |
+| Verification engine (integrity), JSON and terminal reports, stable exit codes | Milestone 3 (available) |
 | Reproducible rebuilds of Rust/Cargo projects (Linux, container-isolated) | Milestone 4 |
 | Sigstore signatures, in-toto attestations, SLSA provenance | Milestone 5 |
 | First release candidate | Milestone 6 |
@@ -97,6 +104,7 @@ See [known limitations](docs/limitations.md) for the full list.
 - [Supported standards](docs/standards.md)
 - [Known limitations](docs/limitations.md)
 - [Roadmap](docs/roadmap.md)
+- [Sigstore libraries for Rust](docs/research/sigstore-libraries.md): a desk evaluation ahead of Milestone 5
 
 The reproducible build guide will be written when rebuilds land (Milestone 4).
 

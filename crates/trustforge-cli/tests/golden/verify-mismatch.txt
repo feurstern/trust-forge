@@ -1,0 +1,30 @@
+Artifact           app: file, 13 bytes
+                   sha256 853ff93762a06ddbf722c4ebe9ddd66d8f63ddaea97f521c3ecc20da7c976020
+Reference 1        digests given directly (--expect)
+                   origin  user-supplied
+                   claims  a file
+Policy             full: requires integrity, authenticity, provenance, reproducibility; digest algorithms accepted: blake3, sha256, sha512
+
+Integrity          FAILED          evidence contradicts a claim
+Authenticity       NOT EVALUATED   no signature supplied
+Provenance         NOT EVALUATED   no provenance supplied
+Reproducibility    NOT EVALUATED   no rebuild performed
+Software security  NOT ASSESSED    out of scope for TrustForge
+
+Checks
+  integrity.digest  FAILED       reference 1: sha256 differs
+      expected sha256 0000000000000000000000000000000000000000000000000000000000000000
+      actual   sha256 853ff93762a06ddbf722c4ebe9ddd66d8f63ddaea97f521c3ecc20da7c976020
+
+Possible causes (none of them is established; a mismatch is not a finding of malice)
+  - the artifact was modified, corrupted or truncated after the reference was made
+  - the reference describes a different artifact, or another version of it
+
+Limitations
+  - integrity: failed: evidence contradicts a claim
+  - authenticity: not evaluated: no signature supplied
+  - provenance: not evaluated: no provenance supplied
+  - reproducibility: not evaluated: no rebuild performed
+  - software security: not assessed: TrustForge never assesses whether software is safe
+
+Overall: MISMATCH (evidence contradicts a claim; reference 1: user-supplied)
