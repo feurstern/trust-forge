@@ -1,0 +1,30 @@
+Loaded from file: not re-verified; reports are unsigned.
+Written by         trustforge 0.0.0
+Artifact           app: file, 13 bytes
+                   blake3 623a5460d841b6d1c13d080e85500e0043fd4ba4a8ba9c1aa9b4f6e0d212276c
+                   sha256 853ff93762a06ddbf722c4ebe9ddd66d8f63ddaea97f521c3ecc20da7c976020
+                   sha512 f65f341b35981fda842b09b2c8af9bcdb7602a4c2e6fa1f7d41f0974d3e3122f268fc79d5a4af66358f5133885cd1c165c916f80ab25e5d8d95db46f803c782c
+Reference 1        manifest app.manifest.json
+                   SHA-256 09358dae9db4a7d2b03b96b6a78269cf80d265950aaa31d639c2ad20e8281fa7 (identifies these exact bytes)
+                   origin  unauthenticated claim: no signature was verified
+                   claims  a file, 13 bytes
+Policy             full: requires integrity, authenticity, provenance, reproducibility; digest algorithms accepted: blake3, sha256, sha512
+
+Integrity          VERIFIED        recorded: the artifact matches the reference
+Authenticity       NOT EVALUATED   recorded: no signature supplied
+Provenance         NOT EVALUATED   recorded: no provenance supplied
+Reproducibility    NOT EVALUATED   recorded: no rebuild performed
+Software security  NOT ASSESSED    out of scope for TrustForge
+
+Checks
+  integrity.digest  PASSED       reference 1: blake3, sha256, sha512 match
+  integrity.size    PASSED       reference 1: 13 bytes
+
+Limitations
+  - authenticity: not evaluated: no signature supplied
+  - provenance: not evaluated: no provenance supplied
+  - reproducibility: not evaluated: no rebuild performed
+  - software security: not assessed: TrustForge never assesses whether software is safe
+  - a manifest without a verified signature is only a claim: whoever can replace the artifact may be able to replace the manifest too
+
+Overall (as recorded, not re-verified): PARTIALLY VERIFIED (policy "full" also requires authenticity, provenance and reproducibility, which are not verified; reference 1: unauthenticated claim (no signature was verified))
