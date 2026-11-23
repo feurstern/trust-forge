@@ -1,0 +1,93 @@
+{
+  "_type": "https://feurstern.github.io/trust-forge/report/v0",
+  "artifact": {
+    "digest": {
+      "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    },
+    "entries": null,
+    "kind": "stream",
+    "name": "-",
+    "size": 3
+  },
+  "checks": [
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "actual": {
+          "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        },
+        "expected": {
+          "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        },
+        "type": "digests"
+      },
+      "id": "integrity.digest",
+      "reference": 0,
+      "status": "PASSED",
+      "summary": "sha256 matches"
+    }
+  ],
+  "dimensions": {
+    "authenticity": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no signature supplied"
+    },
+    "integrity": {
+      "reason": null,
+      "status": "VERIFIED",
+      "summary": "the artifact matches the reference"
+    },
+    "provenance": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no provenance supplied"
+    },
+    "reproducibility": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no rebuild performed"
+    }
+  },
+  "limitations": [
+    "authenticity: not evaluated: no signature supplied",
+    "provenance: not evaluated: no provenance supplied",
+    "reproducibility: not evaluated: no rebuild performed",
+    "software security: not assessed: TrustForge never assesses whether software is safe"
+  ],
+  "overall": {
+    "possibleCauses": [],
+    "status": "VERIFIED",
+    "summary": "policy \"integrity\" is satisfied"
+  },
+  "policy": {
+    "acceptedAlgorithms": [
+      "blake3",
+      "sha256",
+      "sha512"
+    ],
+    "name": "integrity",
+    "require": [
+      "integrity"
+    ]
+  },
+  "references": [
+    {
+      "claim": {
+        "kind": "file",
+        "size": null
+      },
+      "origin": "user-supplied",
+      "recipe": null,
+      "source": {
+        "type": "expected"
+      },
+      "warnings": [],
+      "warningsOmitted": 0
+    }
+  ],
+  "tool": {
+    "name": "trustforge",
+    "version": "0.0.0"
+  }
+}
