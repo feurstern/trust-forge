@@ -26,7 +26,7 @@ use std::path::Path;
 use crate::digest::{Digest, DigestAlgorithm, DigestError, DigestSet};
 use crate::inspect::{ArtifactDigests, ArtifactKind, EntryKind, Inspection};
 use crate::json::{self, JsonError, JsonLimits, Pointer, StrictValue};
-use crate::name::{NameError, RelPath};
+use crate::name::{NameError, Quoted, RelPath};
 
 pub use cargo::{CargoRecipe, ResolvedDependency};
 
@@ -187,6 +187,33 @@ pub enum WarningKind {
     UnsupportedBuildType,
 }
 
+impl WarningKind {
+    /// The kind's name in reports: `unknown-field`, `unknown-algorithm`,
+    /// `insecure-algorithm`, `missing-sha256` or `unsupported-build-type`.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::UnknownField => "unknown-field",
+            Self::UnknownAlgorithm => "unknown-algorithm",
+            Self::InsecureAlgorithm => "insecure-algorithm",
+            Self::MissingSha256 => "missing-sha256",
+            Self::UnsupportedBuildType => "unsupported-build-type",
+        }
+    }
+
+    /// The kind whose [code](Self::code) is `code`.
+    pub fn from_code(code: &str) -> Option<Self> {
+        [
+            Self::UnknownField,
+            Self::UnknownAlgorithm,
+            Self::InsecureAlgorithm,
+            Self::MissingSha256,
+            Self::UnsupportedBuildType,
+        ]
+        .into_iter()
+        .find(|kind| kind.code() == code)
+    }
+}
+
 /// Why a manifest field is invalid.
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
@@ -239,8 +266,25 @@ pub enum ManifestError {
         /// Where.
         pointer: Pointer,
         /// What.
-        what: String,
+        what: Unsupported,
     },
+}
+
+/// What a manifest uses that this version cannot interpret.
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum Unsupported {
+    /// A statement type other than in-toto Statement v1. The value is cut to
+    /// 256 characters.
+    #[error("statement type {}", Quoted(.0))]
+    StatementType(String),
+    /// A predicate type other than TrustForge manifest v0. The value is cut
+    /// to 256 characters.
+    #[error("predicate type {}", Quoted(.0))]
+    PredicateType(String),
+    /// A digest set without any algorithm this version accepts.
+    #[error("a digest set without any algorithm this version accepts")]
+    NoAcceptedAlgorithm,
 }
 
 /// Options for parsing.
@@ -267,14 +311,22 @@ pub struct ParsedManifest {
 /// Parses and validates a manifest.
 pub fn parse_manifest(bytes: &[u8], opts: &ParseOptions) -> Result<ParsedManifest, ManifestError> {
     let value = json::parse(bytes, &opts.limits)?;
-    let mut ctx = read::Context::default();
-    let manifest = read::statement(&value, &mut ctx)?;
-    let warnings = ctx.finish(opts.strict)?;
+    let (manifest, warnings) = read_value(&value, opts.strict)?;
     Ok(ParsedManifest {
         manifest,
         file_digest: Digest::of(DigestAlgorithm::Sha256, bytes),
         warnings,
     })
+}
+
+/// Validates a manifest that has already passed strict JSON parsing.
+pub(crate) fn read_value(
+    value: &StrictValue,
+    strict: bool,
+) -> Result<(Manifest, Vec<ManifestWarning>), ManifestError> {
+    let mut ctx = read::Context::default();
+    let manifest = read::statement(value, &mut ctx)?;
+    Ok((manifest, ctx.finish(strict)?))
 }
 
 /// How many levels deeper a `buildDefinition` is once embedded in a
