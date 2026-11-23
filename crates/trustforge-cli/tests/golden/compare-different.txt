@@ -1,0 +1,14 @@
+Original           app: file, 13 bytes
+                   blake3 623a5460d841b6d1c13d080e85500e0043fd4ba4a8ba9c1aa9b4f6e0d212276c
+                   sha256 853ff93762a06ddbf722c4ebe9ddd66d8f63ddaea97f521c3ecc20da7c976020
+                   sha512 f65f341b35981fda842b09b2c8af9bcdb7602a4c2e6fa1f7d41f0974d3e3122f268fc79d5a4af66358f5133885cd1c165c916f80ab25e5d8d95db46f803c782c
+Candidate          other: file, 14 bytes
+                   blake3 656752a83e4aa878b9001c40b757e974cc5e40be3e5a158435e5716fd04ac28f
+                   sha256 4dca0fd5f424a31b03ab807cbae77eb32bf2d089eed1cee154b3afed458de0dc
+                   sha512 8b79c03ccb15265150cab1a7f3f61e0abb397c977fad9e51b4a0b0d8d6b9d881ac8ab33007ea6e632fda8f2c4ba0ee9ada322d6cb18be2d87948d4f9b1faf1a2
+
+Differences
+  the sizes differ
+  digests differ: blake3, sha256, sha512
+
+Outcome: DIFFERENT (both sides were read completely, and they differ)
