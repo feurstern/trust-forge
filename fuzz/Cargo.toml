@@ -4,6 +4,7 @@
 # outside the main one. Run from the repository root:
 #
 #   cargo +nightly fuzz run manifest -- -dict=fuzz/manifest.dict
+#   cargo +nightly fuzz run report -- -dict=fuzz/report.dict
 #   cargo +nightly fuzz run format
 #
 # CI runs every target weekly (.github/workflows/fuzz.yml).
@@ -34,6 +35,13 @@ bench = false
 [[bin]]
 name = "format"
 path = "fuzz_targets/format.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "report"
+path = "fuzz_targets/report.rs"
 test = false
 doc = false
 bench = false
