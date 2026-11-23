@@ -1,8 +1,7 @@
 //! `trustforge manifest`: create and validate manifests.
 
 use std::fs::File;
-use std::io::{self, Read};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Args, Subcommand};
@@ -15,6 +14,7 @@ use trustforge_core::manifest::{
 };
 
 use crate::artifact::ArtifactArgs;
+use crate::input::{read_document, read_limited, shown};
 use crate::output::{self, Format, diagnostic};
 use crate::render::escape_for_terminal;
 use crate::sanitize::sanitize;
@@ -95,19 +95,6 @@ fn parse_options(max_bytes: usize, strict: bool) -> ParseOptions {
     opts.limits.max_bytes = max_bytes;
     opts.strict = strict;
     opts
-}
-
-/// Reads at most `max + 1` bytes, so that an oversized document is
-/// recognized without reading it all.
-fn read_limited(reader: impl Read, max: usize) -> io::Result<Vec<u8>> {
-    let mut bytes = Vec::new();
-    let limit = u64::try_from(max).unwrap_or(u64::MAX).saturating_add(1);
-    reader.take(limit).read_to_end(&mut bytes)?;
-    Ok(bytes)
-}
-
-fn shown(path: &Path) -> String {
-    sanitize(&path.to_string_lossy())
 }
 
 fn create(args: &CreateArgs) -> ExitCode {
@@ -243,17 +230,7 @@ fn create(args: &CreateArgs) -> ExitCode {
 }
 
 fn validate(args: &ValidateArgs) -> ExitCode {
-    let (label, read) = if args.path == "-" {
-        (
-            "(standard input)".to_owned(),
-            read_limited(io::stdin().lock(), args.max_manifest_size),
-        )
-    } else {
-        (
-            sanitize(&args.path),
-            File::open(&args.path).and_then(|file| read_limited(file, args.max_manifest_size)),
-        )
-    };
+    let (label, read) = read_document(&args.path, args.max_manifest_size);
     let bytes = match read {
         Ok(bytes) => bytes,
         Err(e) => {
