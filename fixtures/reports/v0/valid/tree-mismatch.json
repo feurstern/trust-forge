@@ -1,0 +1,156 @@
+{
+  "_type": "https://feurstern.github.io/trust-forge/report/v0",
+  "artifact": {
+    "entries": 5,
+    "kind": "directory",
+    "name": "dist",
+    "size": 13,
+    "treeDigest": {
+      "narBlake3": "c53f7404fab2049e29e90204e415cc241e1811dea1133cd5884b960394fc330c",
+      "narSha256": "4a6e16101d64dfcd0f963e3888dd3568c2b394650db08a0168193078b7c8731f",
+      "narSha512": "ba987dce6494eba0a219bccbac0a1e22a29b9eb6b37e6948aba005d43e691e110e2ee4d5fbed7c72dc370fbf7aa3bce409ff610e8a95e250b6213efb608fba44"
+    }
+  },
+  "checks": [
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "actual": {
+          "narBlake3": "c53f7404fab2049e29e90204e415cc241e1811dea1133cd5884b960394fc330c",
+          "narSha256": "4a6e16101d64dfcd0f963e3888dd3568c2b394650db08a0168193078b7c8731f",
+          "narSha512": "ba987dce6494eba0a219bccbac0a1e22a29b9eb6b37e6948aba005d43e691e110e2ee4d5fbed7c72dc370fbf7aa3bce409ff610e8a95e250b6213efb608fba44"
+        },
+        "expected": {
+          "narBlake3": "f531b30b36b782b6efdaa68712c929007f067bbc9ce1a25b8c40b7dd224be618",
+          "narSha256": "bc0d87bc8cb1049b9354e40642ee10fef55c8f43a72b23035ce8b9f4bac8d986",
+          "narSha512": "21a9ec9fecc4d7c9affee3bffa828f68871603bfe85ae03cea6404853d5cde2e8ea60e4ed30ca964f4bbfc10db372244354f02aea7332592ef280303f7e1762e"
+        },
+        "type": "digests"
+      },
+      "id": "integrity.digest",
+      "reference": 0,
+      "status": "FAILED",
+      "summary": "narBlake3, narSha256, narSha512 differ"
+    },
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "actual": 13,
+        "expected": 13,
+        "type": "size"
+      },
+      "id": "integrity.size",
+      "reference": 0,
+      "status": "PASSED",
+      "summary": "13 bytes"
+    },
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "differences": [
+          {
+            "algorithms": [
+              "blake3",
+              "sha256",
+              "sha512"
+            ],
+            "change": "digest",
+            "path": "README"
+          },
+          {
+            "actual": false,
+            "change": "executable",
+            "expected": true,
+            "path": "bin/app"
+          },
+          {
+            "change": "unexpected",
+            "path": "extra",
+            "type": "file"
+          }
+        ],
+        "differencesOmitted": 0,
+        "entries": 5,
+        "problem": null,
+        "type": "tree"
+      },
+      "id": "integrity.tree",
+      "reference": 0,
+      "status": "FAILED",
+      "summary": "3 differences in the listing"
+    }
+  ],
+  "dimensions": {
+    "authenticity": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no signature supplied"
+    },
+    "integrity": {
+      "reason": null,
+      "status": "FAILED",
+      "summary": "evidence contradicts a claim"
+    },
+    "provenance": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no provenance supplied"
+    },
+    "reproducibility": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no rebuild performed"
+    }
+  },
+  "limitations": [
+    "integrity: failed: evidence contradicts a claim",
+    "authenticity: not evaluated: no signature supplied",
+    "provenance: not evaluated: no provenance supplied",
+    "reproducibility: not evaluated: no rebuild performed",
+    "software security: not assessed: TrustForge never assesses whether software is safe",
+    "a manifest without a verified signature is only a claim: whoever can replace the artifact may be able to replace the manifest too"
+  ],
+  "overall": {
+    "possibleCauses": [
+      "the artifact was modified, corrupted or truncated after the reference was made",
+      "the reference describes a different artifact, or another version of it",
+      "files in the directory were added, removed or changed, for example by a tool that writes into it"
+    ],
+    "status": "MISMATCH",
+    "summary": "evidence contradicts a claim"
+  },
+  "policy": {
+    "acceptedAlgorithms": [
+      "blake3",
+      "sha256",
+      "sha512"
+    ],
+    "name": "integrity",
+    "require": [
+      "integrity"
+    ]
+  },
+  "references": [
+    {
+      "claim": {
+        "entries": 4,
+        "kind": "directory",
+        "size": 13
+      },
+      "origin": "unauthenticated-claim",
+      "recipe": null,
+      "source": {
+        "path": "dist.manifest.json",
+        "pinned": null,
+        "sha256": "726ae654c6e67eed454708d2d996e85bfbdddfcb06945b472ad872c8426c124b",
+        "type": "manifest"
+      },
+      "warnings": [],
+      "warningsOmitted": 0
+    }
+  ],
+  "tool": {
+    "name": "trustforge",
+    "version": "0.0.0"
+  }
+}
