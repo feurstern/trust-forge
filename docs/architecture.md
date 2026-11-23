@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status:** Milestone 2. Artifact inspection and hashing (the `digest`, `format`, `name` and `inspect` modules) and manifests (the `json` and `manifest` modules) are implemented. Everything described as "planned" is not implemented yet; each part arrives in the milestone named next to it, with its tests. Planned signatures are sketches that are finalized when their milestone lands.
+> **Status:** Milestone 3. Artifact inspection and hashing (the `digest`, `format`, `name` and `inspect` modules), manifests (the `json` and `manifest` modules) and the verification engine for integrity (the `verify`, `report` and `compare` modules) are implemented. Everything described as "planned" is not implemented yet; each part arrives in the milestone named next to it, with its tests. Planned signatures are sketches that are finalized when their milestone lands.
 
 TrustForge is a Rust workspace with a reusable library and a command-line tool. This document describes how the workspace is organized, the planned library APIs, the artifact model, the rebuild engine, and the decisions behind them. What results *mean* is defined in [verification-semantics.md](verification-semantics.md), and what TrustForge defends against is in [threat-model.md](threat-model.md).
 
@@ -26,7 +26,8 @@ TrustForge is a Rust workspace with a reusable library and a command-line tool. 
 ├── fuzz/                        cargo-fuzz targets (nightly; a separate workspace)
 ├── fixtures/nar/                reference NAR files produced by Nix, byte-exact on every platform
 ├── fixtures/manifests/v0/       manifest fixtures: valid, invalid, created, and reference serializations
-├── scripts/                     one-time generators and checks for the fixtures (Nix, ECMAScript, ajv)
+├── fixtures/reports/v0/         saved-report fixtures: valid ones written by `verify`, and forged ones
+├── scripts/                     generators and checks for the fixtures (Nix, ECMAScript, ajv, reports)
 └── docs/                        documentation, including schemas/manifest-v0.schema.json
 ```
 
@@ -55,7 +56,7 @@ Crate boundaries sit where the **dependency footprint or the security surface** 
 | 4 | **Closed set of digest algorithms** (an enum), with no pluggable hasher trait. | An open extension point would let weak algorithms in. One streaming pass must feed several algorithms anyway. |
 | 5 | **Directory tree digests hash the NAR serialization** of the tree (the Nix Archive format). | An existing, documented, injective serialization that covers the executable bit, symlinks and empty directories, so no new format is needed. Values can be cross-checked with `nix hash path`. |
 | 6 | **Strict JSON parsing.** Input is parsed into an internal `StrictValue` tree, then converted to typed structures by hand-written code. | Rejects duplicate keys, case variants of known fields and other parser-differential tricks that serde's derived deserializers accept silently. No `serde(flatten)` or `untagged`. Implemented in M2 (`trustforge_core::json`): `serde_json` only tokenizes, and every value is built by TrustForge's own visitor, which enforces the rules. |
-| 7 | The **engine is composed of `Check` implementations.** | Lets `rebuild` and `provenance` plug checks in without `core` depending on them, and makes "evidence supplied but no check can evaluate it" an explicit `UNSUPPORTED` result. |
+| 7 | The **engine is composed of `Check` implementations.** | Lets `rebuild` and `provenance` plug checks in without `core` depending on them, and makes "evidence supplied but no check can evaluate it" an explicit `UNSUPPORTED` result. Implemented in M3: the built-in integrity checks always run, and other checks can only be added; check identifiers and their dimensions are a fixed table in `core`, so a check cannot choose its own dimension; a result's status is computed from its evidence, by the same function that re-checks saved reports; and every outcome must meet the rules a saved report is held to (its evidence agrees with the artifact and the reference it names), or it becomes an `ERROR` result. |
 | 8 | **Rebuild isolation is delegated to a container runtime through its CLI** (Docker first, Podman best-effort). There is no host-build mode. | TrustForge does not implement its own sandbox. The CLI driver avoids an async Docker-only client library and works with both runtimes. |
 | 9 | **Reports contain no wall-clock timestamps unless requested.** | Reports stay deterministic and can be snapshot-tested. |
 | 10 | **Directory traversal uses `rustix` system calls directly, not `cap-std`, and is Unix-only.** | Result of the M1 traversal evaluation. TrustForge never resolves a multi-component path below the root: it opens only single names returned by `readdir`, relative to the parent directory's descriptor, with no-follow flags. The exact POSIX calls it needs (`openat`, `fstatat`, `readlinkat`, `fstat`, `getdents`) are what `rustix` exposes safely, so the semantics the threat model relies on are those of the documented calls. `cap-std`'s sandboxed path resolution, and its Windows support, are not needed: directory inspection is unsupported on Windows (open question d, decided in M1), because tree digests cover the executable bit, which Windows lacks. `cap-std` would also add about eight crates. |
@@ -113,26 +114,41 @@ impl Manifest {
 }
 pub enum BuildDefinition { Cargo(CargoRecipe), Unsupported { build_type: String, raw: StrictValue } }
 
-// compare (M3)
-pub fn compare_paths(original: &Path, candidate: &Path, opts: &CompareOptions) -> Result<Comparison, CompareError>;
-pub enum ComparisonOutcome { Match, Different, Incomplete, Failed }
-
-// verify (M3)
+// verify (implemented, M3)
 pub trait Check {
-    fn id(&self) -> CheckId;
-    fn dimension(&self) -> Dimension;
-    fn run(&self, ctx: &CheckContext<'_>) -> CheckResult;   // never panics; failures become Status::Error
+    fn id(&self) -> CheckId;                                  // fixes the dimension too
+    fn run(&self, ctx: &CheckContext<'_>) -> Vec<Outcome>;    // Outcome { reference, evidence }; never panics
 }
-pub struct VerificationRequest<'a> {
-    pub artifact: &'a Path,
-    pub references: Vec<Reference>,          // expected values, each tagged with its origin
-    pub checks: Vec<Box<dyn Check + 'a>>,
-    pub policy: &'a VerificationPolicy,
+pub struct Reference;                     // expected values and their origin; private claims
+impl Reference {
+    pub fn expected(digests: ArtifactDigests) -> Self;                    // user-supplied
+    pub fn from_manifest(bytes: &[u8], path: &str, pinned: Option<&Digest>, opts: &ParseOptions)
+        -> Result<Self, ManifestError>;   // size, then pin, then parse; unsupported documents are references too
+}
+pub struct VerificationPolicy;            // required dimensions (default: all four) and accepted algorithms
+pub struct VerificationRequest<'a> {      // non-exhaustive; built with new()
+    pub artifact: ArtifactSource<'a>,     // Path(&Path) | Reader { name, reader }
+    pub references: Vec<Reference>,
+    pub extra_checks: Vec<Box<dyn Check + 'a>>,   // added to the built-in checks, never replacing them
+    pub policy: VerificationPolicy,
+    pub limits: Limits,
 }
 pub fn verify(req: VerificationRequest<'_>) -> VerificationReport;   // always produces a report
+
+// report (implemented, M3)
+impl VerificationReport {
+    pub fn to_value(&self) -> StrictValue;      // report/v0, deterministic, every string in display form
+    pub fn with_generated_at(self, time: SystemTime) -> Self;
+}
+pub fn read_report(bytes: &[u8], limits: &JsonLimits) -> Result<VerificationReport, ReportError>;
+    // strict; recomputes every status from the evidence and refuses inconsistent reports
+
+// compare (implemented, M3)
+pub fn compare(original: ArtifactSource<'_>, candidate: ArtifactSource<'_>, opts: &CompareOptions) -> Comparison;
+pub enum ComparisonOutcome { Match, Different, Incomplete, Failed }
 ```
 
-The engine inspects the artifact itself, so a read failure becomes an `ERROR` check inside a report rather than a missing report. The result model (`CheckResult`, `CheckStatus`, `DimensionStatus`, `OverallStatus`, `VerificationReport`) is specified in [verification-semantics.md](verification-semantics.md).
+The engine inspects the artifact itself, once, computing every digest algorithm any reference claims (and the policy accepts), so a read failure becomes an `ERROR` check inside a report rather than a missing report. The result model (`CheckResult`, `CheckStatus`, `DimensionStatus`, `OverallStatus`, `VerificationReport`) and the report format are specified in [verification-semantics.md](verification-semantics.md). Text rendering stays in the command-line tool; the explanations it shows are derived in `core` from the structured results, so a saved report never supplies its own text.
 
 ## Artifact model (M1)
 
@@ -204,7 +220,7 @@ Rebuilding executes code from the claimed source repository and its dependencies
    - Logs go to capped files.
 6. **Collect** only after the container has exited. Only the recipe's declared output path is read: no-follow, regular files only. It is hashed while being copied into a private file.
 7. **Compare.** The outcome is one of four:
-   - `MATCH`: every digest and byte is equal.
+   - `MATCH`: the sizes and the SHA-256, SHA-512 and BLAKE3 digests are equal, as for `trustforge compare`.
    - `DIFFERENT`: the build succeeded but the bytes differ.
    - `INCOMPLETE`: the recipe could not be executed as declared.
    - `FAILED`: a build or runtime error.
@@ -222,6 +238,7 @@ Reproducibility evidence counts toward a verified result only when **this** Trus
 
 - **stdout** carries only the primary output. With `--format json`, it is exactly one JSON document.
 - **stderr** carries progress (only on a TTY), logs and warnings. The verdict is printed last.
+- Reports and comparisons write every string in display form (unsafe characters escaped as `\u{…}` text), so their JSON is safe to print and passes TrustForge's own strict parsing. A saved report is shown again only under the banner "loaded from file: not re-verified; reports are unsigned".
 - Every untrusted string is passed through a single sanitizer before reaching a terminal. It escapes control characters, ANSI and OSC sequences, bidi controls, line separators and noncharacters. JSON output spells the same characters as `\uXXXX` escapes (a surrogate pair beyond U+FFFF), which leave every value unchanged.
 - Output files are written to a temporary file and atomically renamed over the destination, which must be missing or a regular file. A symlink, FIFO, device or directory there is refused: renaming would replace the entry itself, and following a symlink would let whoever planted it choose the file written (implemented for `manifest create --output`).
 - Child processes get `/dev/null` as stdin and never get a TTY.
@@ -241,9 +258,8 @@ Each dependency is added in the milestone that first needs it, and only after re
 | `thiserror` | Library errors | M1 |
 | `tempfile` | Output files written to a private temporary file and renamed into place (CLI); temporary trees in tests and benchmarks; private directories in M4 | M1–M4 |
 | `proptest`, `divan` (dev) | Property tests; benchmarks with an allocation profiler | M1 |
-| `insta` (dev) | Snapshot tests of reports | M3 |
 | `libfuzzer-sys` (fuzz crate only) | Coverage-guided fuzz targets, built with a pinned nightly outside the main workspace. It bundles libFuzzer (NCSA license); the fuzz crate is never part of a release. | M2 |
-| `tracing`, `tracing-subscriber` | Diagnostics and logging, once there is something to log | M3–M4 |
+| `tracing`, `tracing-subscriber` | Diagnostics and logging, once there is something to log | M4 |
 | `toml` | Reading Cargo and rustup configuration *as data* | M4 |
 | `object` | Executable section diagnostics | M4 |
 | a Sigstore crate, `tough` (TUF) | Signature and provenance verification, selected by spike | M5 |
@@ -254,6 +270,7 @@ Each dependency is added in the milestone that first needs it, and only after re
 - `bollard`: async and Docker-only;
 - the `in-toto` crate: it implements the legacy layout/link format, not the attestation framework;
 - `cargo_metadata`: it runs Cargo, which may execute repository-chosen programs;
+- `insta`: the command-line output of `verify`, `compare` and `report` is pinned by plain golden files (`crates/trustforge-cli/tests/golden/`), decided in M3;
 - a database.
 
 ## Performance
@@ -263,8 +280,8 @@ Performance claims are made only from measurements. `cargo bench -p trustforge-c
 - inspecting a 256 MiB file (M1);
 - inspecting a directory of 100,000 files (M1);
 - parsing and writing a 4 MiB manifest (M2, `--bench manifest`);
-- comparing large files (M3);
-- rendering reports (M3).
+- comparing two 256 MiB files and two trees of 100,000 files (M3, `--bench compare`);
+- writing and reading a report at its size cap (M3, `--bench compare`).
 
 Results are published together with the hardware they ran on.
 
