@@ -1,0 +1,109 @@
+{
+  "_type": "https://feurstern.github.io/trust-forge/report/v0",
+  "artifact": {
+    "entries": 5,
+    "kind": "directory",
+    "name": "dist",
+    "size": 13,
+    "treeDigest": {
+      "narBlake3": "c53f7404fab2049e29e90204e415cc241e1811dea1133cd5884b960394fc330c",
+      "narSha256": "4a6e16101d64dfcd0f963e3888dd3568c2b394650db08a0168193078b7c8731f",
+      "narSha512": "ba987dce6494eba0a219bccbac0a1e22a29b9eb6b37e6948aba005d43e691e110e2ee4d5fbed7c72dc370fbf7aa3bce409ff610e8a95e250b6213efb608fba44"
+    }
+  },
+  "checks": [
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "actual": "directory",
+        "expected": "file",
+        "type": "kind-mismatch"
+      },
+      "id": "integrity.digest",
+      "reference": 0,
+      "status": "FAILED",
+      "summary": "the reference describes a file, but the artifact is a directory"
+    },
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "reason": "kind-mismatch",
+        "type": "skipped"
+      },
+      "id": "integrity.size",
+      "reference": 0,
+      "status": "SKIPPED",
+      "summary": "not compared: the artifact is not the kind of artifact the reference describes"
+    }
+  ],
+  "dimensions": {
+    "authenticity": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no signature supplied"
+    },
+    "integrity": {
+      "reason": null,
+      "status": "FAILED",
+      "summary": "evidence contradicts a claim"
+    },
+    "provenance": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no provenance supplied"
+    },
+    "reproducibility": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no rebuild performed"
+    }
+  },
+  "limitations": [
+    "integrity: failed: evidence contradicts a claim",
+    "authenticity: not evaluated: no signature supplied",
+    "provenance: not evaluated: no provenance supplied",
+    "reproducibility: not evaluated: no rebuild performed",
+    "software security: not assessed: TrustForge never assesses whether software is safe",
+    "a manifest without a verified signature is only a claim: whoever can replace the artifact may be able to replace the manifest too"
+  ],
+  "overall": {
+    "possibleCauses": [
+      "the path names a different kind of artifact than the reference describes"
+    ],
+    "status": "MISMATCH",
+    "summary": "evidence contradicts a claim"
+  },
+  "policy": {
+    "acceptedAlgorithms": [
+      "blake3",
+      "sha256",
+      "sha512"
+    ],
+    "name": "integrity",
+    "require": [
+      "integrity"
+    ]
+  },
+  "references": [
+    {
+      "claim": {
+        "kind": "file",
+        "size": 13
+      },
+      "origin": "unauthenticated-claim",
+      "recipe": null,
+      "source": {
+        "path": "app.manifest.json",
+        "pinned": null,
+        "sha256": "09358dae9db4a7d2b03b96b6a78269cf80d265950aaa31d639c2ad20e8281fa7",
+        "type": "manifest"
+      },
+      "warnings": [],
+      "warningsOmitted": 0
+    }
+  ],
+  "tool": {
+    "name": "trustforge",
+    "version": "0.0.0"
+  }
+}
