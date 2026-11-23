@@ -1,0 +1,108 @@
+{
+  "_type": "https://feurstern.github.io/trust-forge/report/v0",
+  "artifact": {
+    "digest": {
+      "sha256": "853ff93762a06ddbf722c4ebe9ddd66d8f63ddaea97f521c3ecc20da7c976020"
+    },
+    "entries": null,
+    "kind": "file",
+    "name": "app",
+    "size": 13
+  },
+  "checks": [
+    {
+      "dimension": "integrity",
+      "evidence": {
+        "type": "unsupported-reference"
+      },
+      "id": "integrity.digest",
+      "reference": 0,
+      "status": "UNSUPPORTED",
+      "summary": "this version cannot evaluate the reference (see what it claims)"
+    },
+    {
+      "dimension": "authenticity",
+      "evidence": {
+        "claim": "envelope",
+        "type": "no-check"
+      },
+      "id": "authenticity.signature",
+      "reference": 0,
+      "status": "UNSUPPORTED",
+      "summary": "the reference is a signed envelope, but this version cannot verify signatures"
+    }
+  ],
+  "dimensions": {
+    "authenticity": {
+      "reason": "unsupported",
+      "status": "NOT_EVALUATED",
+      "summary": "signatures cannot be verified by this version"
+    },
+    "integrity": {
+      "reason": "unsupported",
+      "status": "NOT_EVALUATED",
+      "summary": "a reference cannot be evaluated by this version"
+    },
+    "provenance": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no provenance supplied"
+    },
+    "reproducibility": {
+      "reason": "not-provided",
+      "status": "NOT_EVALUATED",
+      "summary": "no rebuild performed"
+    }
+  },
+  "limitations": [
+    "integrity: not evaluated: a reference cannot be evaluated by this version",
+    "authenticity: not evaluated: signatures cannot be verified by this version",
+    "provenance: not evaluated: no provenance supplied",
+    "reproducibility: not evaluated: no rebuild performed",
+    "software security: not assessed: TrustForge never assesses whether software is safe",
+    "a manifest without a verified signature is only a claim: whoever can replace the artifact may be able to replace the manifest too"
+  ],
+  "overall": {
+    "possibleCauses": [],
+    "status": "UNVERIFIED",
+    "summary": "nothing was verified; policy \"full\" is not satisfied"
+  },
+  "policy": {
+    "acceptedAlgorithms": [
+      "blake3",
+      "sha256",
+      "sha512"
+    ],
+    "name": "full",
+    "require": [
+      "integrity",
+      "authenticity",
+      "provenance",
+      "reproducibility"
+    ]
+  },
+  "references": [
+    {
+      "claim": {
+        "kind": "unsupported",
+        "pointer": null,
+        "reason": "dsse-envelope",
+        "value": "signature verified by TrustForge"
+      },
+      "origin": "unauthenticated-claim",
+      "recipe": null,
+      "source": {
+        "path": "signed.json",
+        "pinned": null,
+        "sha256": "d680a6c03107294f4a5401c4129795db5cb378527655495276ed382c665a2678",
+        "type": "manifest"
+      },
+      "warnings": [],
+      "warningsOmitted": 0
+    }
+  ],
+  "tool": {
+    "name": "trustforge",
+    "version": "0.0.0"
+  }
+}
