@@ -1,0 +1,26 @@
+Artifact           app: file, 13 bytes
+                   sha256 853ff93762a06ddbf722c4ebe9ddd66d8f63ddaea97f521c3ecc20da7c976020
+Reference 1        manifest v9.json
+                   SHA-256 35f0d7de193c898d593aa21fe026ae8f50ccf53dd0d8576518f9f4939ee6c26f (identifies these exact bytes)
+                   origin  unauthenticated claim: no signature was verified
+                   claims  nothing this version can evaluate: a manifest of type "https://feurstern.github.io/trust-forge/manifest/v9"
+Policy             integrity: requires integrity; digest algorithms accepted: blake3, sha256, sha512
+
+Integrity          NOT EVALUATED   a reference cannot be evaluated by this version
+Authenticity       NOT EVALUATED   no signature supplied
+Provenance         NOT EVALUATED   no provenance supplied
+Reproducibility    NOT EVALUATED   no rebuild performed
+Software security  NOT ASSESSED    out of scope for TrustForge
+
+Checks
+  integrity.digest  UNSUPPORTED  reference 1: this version cannot evaluate the reference (see what it claims)
+
+Limitations
+  - integrity: not evaluated: a reference cannot be evaluated by this version
+  - authenticity: not evaluated: no signature supplied
+  - provenance: not evaluated: no provenance supplied
+  - reproducibility: not evaluated: no rebuild performed
+  - software security: not assessed: TrustForge never assesses whether software is safe
+  - a manifest without a verified signature is only a claim: whoever can replace the artifact may be able to replace the manifest too
+
+Overall: UNVERIFIED (nothing was verified; policy "integrity" is not satisfied; reference 1: unauthenticated claim (no signature was verified))
