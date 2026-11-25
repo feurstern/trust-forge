@@ -99,4 +99,4 @@ jobs:
       # This action builds its container at run time and downloads the
       # cargo-deny release archive without verifying a checksum. Replacing it
       # with a digest-pinned install is tracked in docs/roadmap.md (Milestone 6).
-      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+      - uses: EmbarkStudios/cargo-deny-action@17aeb3c839e42274e2b8adf721c8c65edfdc74dd # v2.1.3
